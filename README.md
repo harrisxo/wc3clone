@@ -17,6 +17,7 @@ Danach ist die Anwendung unter `http://localhost:3000` erreichbar. Die lokale SQ
 
 ```bash
 npm run lint
+npm test
 npm run build
 ```
 

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { database } from "@/lib/db";
 import { getGameState } from "@/lib/game-system";
+import { buildingUpgradeCost, foodBuildingCost, queueUpgradeCost } from "@/lib/costs";
 
 export async function startBuild(formData: FormData) {
   const user = await getCurrentUser();
@@ -20,19 +21,13 @@ export async function startBuild(formData: FormData) {
     seconds = def.seconds,
     jobType = "build";
   if (mode === "food" && owned && def.kind === "food") {
-    gold = 100 + Math.floor((state.foodCapacity - 10) / 10) * 35;
-    wood = 60 + Math.floor((state.foodCapacity - 10) / 10) * 20;
-    seconds = 120;
+    ({ gold, wood, seconds } = foodBuildingCost(state.foodCapacity));
     jobType = "food";
   } else if (mode === "queue" && owned) {
-    gold = 300 * owned.queue_slots;
-    wood = 250 * owned.queue_slots;
-    seconds = 300;
+    ({ gold, wood, seconds } = queueUpgradeCost(owned.queue_slots));
     jobType = "queue";
   } else if (mode === "upgrade" && owned) {
-    gold = 180 + owned.upgrade_level * 120;
-    wood = 140 + owned.upgrade_level * 90;
-    seconds = 240 + owned.upgrade_level * 60;
+    ({ gold, wood, seconds } = buildingUpgradeCost(owned.upgrade_level));
     jobType = "upgrade";
   } else if (owned || state.buildJobs.some((j) => j.building_key === key && j.job_type === "build")) redirect(`/game?view=${returnView}`);
   if (owned && active >= owned.queue_slots) redirect(`/game?view=${returnView}`);

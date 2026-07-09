@@ -4,9 +4,15 @@ import { randomInt } from "node:crypto";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-const dataDirectory = path.join(process.cwd(), "data");
-mkdirSync(dataDirectory, { recursive: true });
-const database = new DatabaseSync(path.join(dataDirectory, "grenzmark.db"));
+// Overridable so tests can point at an isolated file or ":memory:" instead of the real dev database.
+const databasePath =
+  process.env.DATABASE_PATH ??
+  (() => {
+    const dataDirectory = path.join(process.cwd(), "data");
+    mkdirSync(dataDirectory, { recursive: true });
+    return path.join(dataDirectory, "grenzmark.db");
+  })();
+const database = new DatabaseSync(databasePath);
 database.exec("PRAGMA journal_mode = WAL;");
 
 function seedWorld() {
