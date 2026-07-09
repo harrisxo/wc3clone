@@ -15,7 +15,7 @@ function capacities(userId: number) {
   return { storage: 5000 + (territory.storage_fields ?? 0) * 1000, goldWorkplaces: 5 + (territory.mines ?? 0) };
 }
 
-export function accrueResources(userId: number): EconomyState {
+function computeEconomy(userId: number): EconomyState {
   const user = database.prepare(`SELECT gold, wood, total_workers, gold_workers, wood_workers, resources_updated_at FROM users WHERE id = ?`).get(userId) as {
     gold: number; wood: number; total_workers: number; gold_workers: number; wood_workers: number; resources_updated_at: string | null;
   } | undefined;
@@ -30,10 +30,21 @@ export function accrueResources(userId: number): EconomyState {
   const gold = Math.min(caps.storage, user.gold + goldWorkers * 10 * elapsedHours);
   const wood = Math.min(caps.storage, user.wood + woodWorkers * 10 * elapsedHours);
 
-  database.prepare(`UPDATE users SET gold = ?, wood = ?, gold_workers = ?, wood_workers = ?, resources_updated_at = ? WHERE id = ?`)
-    .run(gold, wood, goldWorkers, woodWorkers, now.toISOString(), userId);
-
   const busyWorkers = (database.prepare("SELECT COUNT(*) count FROM build_jobs WHERE user_id = ? AND job_type = 'build'").get(userId) as { count: number }).count;
   return { gold, wood, goldCapacity: caps.storage, woodCapacity: caps.storage, totalWorkers: user.total_workers, goldWorkers, woodWorkers, goldWorkplaces: caps.goldWorkplaces, woodWorkplaces: 5, busyWorkers, updatedAt: now.toISOString() };
+}
+
+// Read-only: computes the current totals without persisting. Safe for polling —
+// the next accrueResources() call recomputes the full elapsed time from the
+// last persisted resources_updated_at, so nothing is lost by skipping writes here.
+export function previewResources(userId: number): EconomyState {
+  return computeEconomy(userId);
+}
+
+export function accrueResources(userId: number): EconomyState {
+  const state = computeEconomy(userId);
+  database.prepare(`UPDATE users SET gold = ?, wood = ?, gold_workers = ?, wood_workers = ?, resources_updated_at = ? WHERE id = ?`)
+    .run(state.gold, state.wood, state.goldWorkers, state.woodWorkers, state.updatedAt, userId);
+  return state;
 }
 

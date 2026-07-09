@@ -1,6 +1,6 @@
 ﻿import "server-only";
 import { database } from "@/lib/db";
-import { accrueResources } from "@/lib/economy";
+import { accrueResources, previewResources } from "@/lib/economy";
 import { buildingsByRace, unitsByRace } from "@/lib/game-data";
 import type { Race } from "@/lib/auth";
 
@@ -24,9 +24,9 @@ export function processGameJobs(userId:number, race:Race) {
   database.prepare("INSERT OR IGNORE INTO player_buildings(user_id,building_key) VALUES(?,'main')").run(userId);
 }
 
-export function getGameState(userId:number,race:Race){
+export function getGameState(userId:number,race:Race,options?:{persist?:boolean}){
   processGameJobs(userId,race);
-  const economy=accrueResources(userId);
+  const economy=options?.persist===false?previewResources(userId):accrueResources(userId);
   const profile=database.prepare("SELECT food_capacity FROM users WHERE id=?").get(userId) as {food_capacity:number};
   const buildings=database.prepare("SELECT building_key,queue_slots,upgrade_level FROM player_buildings WHERE user_id=?").all(userId) as {building_key:string;queue_slots:number;upgrade_level:number}[];
   const buildJobs=database.prepare("SELECT id,building_key,job_type,finishes_at FROM build_jobs WHERE user_id=? ORDER BY finishes_at").all(userId) as {id:number;building_key:string;job_type:string;finishes_at:string}[];

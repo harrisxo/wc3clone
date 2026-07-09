@@ -9,7 +9,7 @@ export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
   if (!user.race) return NextResponse.json({ error: "Keine Rasse" }, { status: 409 });
-  const state = getGameState(user.id, user.race);
+  const state = getGameState(user.id, user.race, { persist: false });
   return NextResponse.json({ ...state.economy, foodUsed: state.supplyUsed, foodCapacity: state.foodCapacity });
 }
 
