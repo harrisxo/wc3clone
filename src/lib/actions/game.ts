@@ -5,12 +5,17 @@ import { database } from "@/lib/db";
 import { getGameState } from "@/lib/game-system";
 import { buildingUpgradeCost, foodBuildingCost, queueUpgradeCost } from "@/lib/costs";
 
+function safeView(value: FormDataEntryValue | null, fallback: string) {
+  const s = String(value ?? "");
+  return /^[a-z]+$/.test(s) ? s : fallback;
+}
+
 export async function startBuild(formData: FormData) {
   const user = await getCurrentUser();
   if (!user?.race) redirect("/");
   const key = String(formData.get("building"));
   const mode = String(formData.get("mode") || "build");
-  const returnView = formData.get("returnView") === "einheiten" ? "einheiten" : "bauen";
+  const returnView = safeView(formData.get("returnView"), "bauen");
   const state = getGameState(user.id, user.race);
   const def = state.buildingDefs.find((b) => b.key === key);
   if (!def || (def.kind === "main" && mode !== "queue")) redirect(`/game?view=${returnView}&notice=invalid`);
@@ -46,15 +51,16 @@ export async function trainUnit(formData: FormData) {
   const key = String(formData.get("unit"));
   const state = getGameState(user.id, user.race);
   const def = state.unitDefs.find((u) => u.key === key);
-  if (!def) redirect("/game?view=einheiten&notice=invalid");
+  const returnView = safeView(formData.get("returnView"), def?.building ?? "main");
+  if (!def) redirect(`/game?view=${returnView}&notice=invalid`);
   const building = state.buildings.find((b) => b.building_key === def.building);
-  if (!building) redirect("/game?view=einheiten&notice=building");
+  if (!building) redirect(`/game?view=${returnView}&notice=building`);
   const active = state.unitJobs.filter((j) => j.building_key === def.building).length;
-  if (active >= building.queue_slots) redirect("/game?view=einheiten&notice=queue");
-  if (state.supplyUsed + def.supply > state.foodCapacity) redirect("/game?view=einheiten&notice=food");
-  if (state.economy.gold < def.gold || state.economy.wood < def.wood) redirect("/game?view=einheiten&notice=resources");
+  if (active >= building.queue_slots) redirect(`/game?view=${returnView}&notice=queue`);
+  if (state.supplyUsed + def.supply > state.foodCapacity) redirect(`/game?view=${returnView}&notice=food`);
+  if (state.economy.gold < def.gold || state.economy.wood < def.wood) redirect(`/game?view=${returnView}&notice=resources`);
   const deduction = database.prepare("UPDATE users SET gold=gold-?,wood=wood-? WHERE id=? AND gold>=? AND wood>=?").run(def.gold, def.wood, user.id, def.gold, def.wood);
-  if (deduction.changes !== 1) redirect("/game?view=einheiten&notice=resources");
+  if (deduction.changes !== 1) redirect(`/game?view=${returnView}&notice=resources`);
   database.prepare("INSERT INTO unit_jobs(user_id,building_key,unit_key,finishes_at) VALUES(?,?,?,?)").run(user.id, def.building, key, new Date(Date.now() + def.seconds * 1000).toISOString());
-  redirect("/game?view=einheiten");
+  redirect(`/game?view=${returnView}`);
 }

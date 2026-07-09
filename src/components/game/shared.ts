@@ -8,11 +8,11 @@ export const raceData: Record<Race, { name: string; sigil: string; title: string
 };
 
 export const views = {
-  karte: { label: "Karte", icon: "⌖", heading: "Die Weltkarte", text: "Hier entsteht die Welt mit ihren Feldern, Grenzen und deinen ersten möglichen Zielen." },
-  ranking: { label: "Ranking", icon: "♛", heading: "Rangliste", text: "Vergleiche dein Reich später mit den mächtigsten Herrschern der Welt." },
-  arbeiter: { label: "Arbeiter", icon: "⚒", heading: "Arbeiter", text: "Verwalte hier künftig deine Bevölkerung und verteile Arbeitskräfte auf Aufgaben." },
-  bauen: { label: "Bauen", icon: "▰", heading: "Bauvorhaben", text: "Plane Gebäude, Erweiterungen und die Entwicklung deiner Gebiete." },
-  einheiten: { label: "Einheiten", icon: "♞", heading: "Einheiten", text: "Stelle deine Armee zusammen und bereite sie auf kommende Feldzüge vor." },
+  karte: { label: "Karte", icon: "⌖", heading: "Die Weltkarte" },
+  ranking: { label: "Ranking", icon: "♛", heading: "Rangliste" },
+  arbeiter: { label: "Arbeiter", icon: "⚒", heading: "Arbeiter" },
+  bauen: { label: "Bauen", icon: "▰", heading: "Bauvorhaben" },
+  einheiten: { label: "Einheiten", icon: "♞", heading: "Einheiten" },
 } as const;
 
 export type View = keyof typeof views;
