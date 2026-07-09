@@ -20,8 +20,18 @@ export async function register(_previousState: AuthState, formData: FormData): P
   const existing = database.prepare("SELECT username, email FROM users WHERE username = ? OR email = ? OR display_name = ?").get(username, email, displayName) as { username: string; email: string; display_name?: string } | undefined;
   if (existing) return { error: existing.username.toLowerCase() === username.toLowerCase() ? "Dieser Loginname ist bereits vergeben." : existing.email.toLowerCase() === email ? "Für diese E-Mail-Adresse besteht bereits ein Konto." : "Dieser öffentliche Spielername ist bereits vergeben." };
 
-  const result = database.prepare("INSERT INTO users (username, display_name, email, password_hash) VALUES (?, ?, ?, ?)").run(username, displayName, email, await hashPassword(password));
-  const userId = Number(result.lastInsertRowid);
+  let userId: number;
+  try {
+    const result = database.prepare("INSERT INTO users (username, display_name, email, password_hash) VALUES (?, ?, ?, ?)").run(username, displayName, email, await hashPassword(password));
+    userId = Number(result.lastInsertRowid);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("UNIQUE constraint failed")) {
+      if (error.message.includes("users.username")) return { error: "Dieser Loginname ist bereits vergeben." };
+      if (error.message.includes("users.email")) return { error: "Für diese E-Mail-Adresse besteht bereits ein Konto." };
+      return { error: "Dieser öffentliche Spielername ist bereits vergeben." };
+    }
+    throw error;
+  }
   ensureHomeTile(userId);
   await createSession(userId);
   redirect("/game");
