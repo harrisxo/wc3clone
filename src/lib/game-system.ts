@@ -33,6 +33,7 @@ export function getGameState(userId:number,race:Race){
   const stacks=database.prepare("SELECT unit_key,quantity FROM unit_stacks WHERE user_id=? AND quantity>0").all(userId) as {unit_key:string;quantity:number}[];
   const unitJobs=database.prepare("SELECT id,building_key,unit_key,quantity,finishes_at FROM unit_jobs WHERE user_id=? ORDER BY finishes_at").all(userId) as {id:number;building_key:string;unit_key:string;quantity:number;finishes_at:string}[];
   const unitSupply=stacks.reduce((sum,s)=>sum+(unitsByRace[race].find(u=>u.key===s.unit_key)?.supply??0)*s.quantity,0);
-  return {economy,buildings,buildJobs,stacks,unitJobs,foodCapacity:profile.food_capacity,supplyUsed:economy.totalWorkers+unitSupply,busyWorkers:buildJobs.filter(j=>j.job_type==="build").length,buildingDefs:buildingsByRace[race],unitDefs:unitsByRace[race]};
+  const pendingSupply=unitJobs.reduce((sum,j)=>sum+(unitsByRace[race].find(u=>u.key===j.unit_key)?.supply??0)*j.quantity,0);
+  return {economy,buildings,buildJobs,stacks,unitJobs,foodCapacity:profile.food_capacity,supplyUsed:economy.totalWorkers+unitSupply+pendingSupply,busyWorkers:buildJobs.filter(j=>j.job_type==="build").length,buildingDefs:buildingsByRace[race],unitDefs:unitsByRace[race]};
 }
 
