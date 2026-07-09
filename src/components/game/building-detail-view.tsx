@@ -49,14 +49,15 @@ export function BuildingDetailView({ state, home, buildingKey }: { state: Return
             const heroStatus = state.heroUnits.find((hero) => hero.hero_key === unit.key);
             const isBuilt = heroStatus?.alive === 1;
             const isDead = heroStatus?.alive === 0;
-            const statusText = !heroStatus ? "Unbeschworen" : isDead ? "Gefallen" : "Im Einsatz";
+            const isPending = activeUnitJobs.some((job) => job.unit_key === unit.key);
+            const statusText = isBuilt ? "Im Einsatz" : isPending ? "In Auftrag" : isDead ? "Gefallen" : "Unbeschworen";
             const actionLabel = !heroStatus ? "Bauen" : "Wiederbeleben";
-            const description = !heroStatus ? "Noch nicht beschworen" : isDead ? "Kann im Heldenturm wiederbelebt werden" : "Bereits im Dienst";
+            const description = isBuilt ? "Bereits im Dienst" : isPending ? "Ausbildung läuft bereits" : isDead ? "Kann im Heldenturm wiederbelebt werden" : "Noch nicht beschworen";
             const info = <span className="selected-unit-info"><h4>{unit.name}</h4><small>Level {heroStatus?.level ?? 1} · {statusText}</small><p>{description}</p></span>;
 
-            if (isBuilt) return <article className="selected-unit selected-unit-hero" key={unit.key}>
+            if (isBuilt || isPending) return <article className="selected-unit selected-unit-hero" key={unit.key}>
               <span className="selected-unit-trigger selected-unit-static"><span className="unit-icon">{unit.icon}</span>{info}</span>
-              <button className="selected-unit-action" disabled>Einzigartig</button>
+              <button className="selected-unit-action" disabled>{isBuilt ? "Einzigartig" : "In Auftrag"}</button>
             </article>;
 
             return <form className="selected-unit selected-unit-hero" action={trainUnit} key={unit.key}>

@@ -64,28 +64,27 @@ export async function trainUnit(formData: FormData) {
   const returnView = safeView(formData.get("returnView"), def?.building ?? "main");
   if (!def) redirect(`/game?view=${returnView}&notice=invalid`);
 
-  if (isHeroUnit(def)) {
-    const hero = database.prepare("SELECT level,alive FROM hero_units WHERE user_id=? AND hero_key=?").get(user.id, key) as { level: number; alive: number } | undefined;
-    if (hero?.alive === 1) redirect(`/game?view=${returnView}&notice=built`);
-    const cost = hero ? heroReviveCost(hero.level) : { gold: def.gold, wood: def.wood, seconds: def.seconds };
-    if (state.economy.gold < cost.gold || state.economy.wood < cost.wood) redirect(`/game?view=${returnView}&notice=resources`);
-    const deduction = database.prepare("UPDATE users SET gold=gold-?,wood=wood-? WHERE id=? AND gold>=? AND wood>=?").run(cost.gold, cost.wood, user.id, cost.gold, cost.wood);
-    if (deduction.changes !== 1) redirect(`/game?view=${returnView}&notice=resources`);
-    const heroLevel = hero?.level ?? 1;
-    database.prepare("INSERT INTO hero_units(user_id,hero_key,level,alive,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(user_id,hero_key) DO UPDATE SET alive=1, updated_at=excluded.updated_at").run(user.id, key, heroLevel, 1, new Date().toISOString());
-    redirect(`/game?view=${returnView}`);
-  }
-
-  const requestedQuantity = Math.floor(Number(formData.get("quantity")));
-  const quantity = Number.isFinite(requestedQuantity) ? Math.min(999, Math.max(1, requestedQuantity)) : 1;
-
   const building = state.buildings.find((b) => b.building_key === def.building);
   if (!building) redirect(`/game?view=${returnView}&notice=building`);
   const active = state.unitJobs.filter((j) => j.building_key === def.building).length;
   if (active >= building.queue_slots) redirect(`/game?view=${returnView}&notice=queue`);
-  const totalGold = def.gold * quantity;
-  const totalWood = def.wood * quantity;
-  const totalSeconds = def.seconds * quantity;
+
+  let quantity = 1;
+  let unitCost = { gold: def.gold, wood: def.wood, seconds: def.seconds };
+
+  if (isHeroUnit(def)) {
+    const hero = database.prepare("SELECT level,alive FROM hero_units WHERE user_id=? AND hero_key=?").get(user.id, key) as { level: number; alive: number } | undefined;
+    if (hero?.alive === 1) redirect(`/game?view=${returnView}&notice=built`);
+    if (state.unitJobs.some((j) => j.unit_key === key)) redirect(`/game?view=${returnView}&notice=queue`);
+    if (hero) unitCost = heroReviveCost(hero.level);
+  } else {
+    const requestedQuantity = Math.floor(Number(formData.get("quantity")));
+    quantity = Number.isFinite(requestedQuantity) ? Math.min(999, Math.max(1, requestedQuantity)) : 1;
+  }
+
+  const totalGold = unitCost.gold * quantity;
+  const totalWood = unitCost.wood * quantity;
+  const totalSeconds = unitCost.seconds * quantity;
   if (state.supplyUsed + def.supply * quantity > state.foodCapacity) redirect(`/game?view=${returnView}&notice=food`);
   if (state.economy.gold < totalGold || state.economy.wood < totalWood) redirect(`/game?view=${returnView}&notice=resources`);
   const deduction = database.prepare("UPDATE users SET gold=gold-?,wood=wood-? WHERE id=? AND gold>=? AND wood>=?").run(totalGold, totalWood, user.id, totalGold, totalWood);
