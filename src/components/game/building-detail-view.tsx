@@ -11,7 +11,6 @@ export function BuildingDetailView({ state, home, buildingKey }: { state: Return
   const activeUnitJobs = state.unitJobs.filter((job) => job.building_key === buildingKey);
   const activeBuildingJobs = state.buildJobs.filter((job) => job.building_key === buildingKey);
   const occupiedQueues = activeUnitJobs.length + activeBuildingJobs.length;
-  const hasFoodJob = activeBuildingJobs.some((job) => job.job_type === "food");
   const hasUpgradeJob = activeBuildingJobs.some((job) => job.job_type === "upgrade");
   const queueCost = queueUpgradeCost(owned.queue_slots);
   const foodCost = foodBuildingCost(state.foodCapacity);
