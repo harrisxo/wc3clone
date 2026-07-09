@@ -132,6 +132,20 @@ const migrations: { version: number; run: () => void }[] = [
       `);
     },
   },
+  {
+    version: 3,
+    run: () => {
+      database.exec(`
+        CREATE TABLE auth_attempts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          scope TEXT NOT NULL CHECK (scope IN ('login', 'register')),
+          key TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX auth_attempts_lookup_idx ON auth_attempts(scope, key, created_at);
+      `);
+    },
+  },
 ];
 
 const { user_version: currentVersion } = database.prepare("PRAGMA user_version").get() as { user_version: number };
