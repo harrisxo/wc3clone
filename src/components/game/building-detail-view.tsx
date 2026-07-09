@@ -15,19 +15,20 @@ export function BuildingDetailView({ state, home, buildingKey }: { state: Return
   const queueCost = queueUpgradeCost(owned.queue_slots);
   const foodCost = foodBuildingCost(state.foodCapacity);
   const upgradeCost = buildingUpgradeCost(owned.upgrade_level);
-  const jobs = [...activeUnitJobs.map((job) => ({ label: state.unitDefs.find((unit) => unit.key === job.unit_key)?.name ?? "Einheit", finishes_at: job.finishes_at })), ...activeBuildingJobs.map((job) => ({ label: job.job_type === "food" ? "+10 Nahrung" : job.job_type === "queue" ? "Weitere Queue" : job.job_type === "upgrade" ? "Upgrade" : "Bauauftrag", finishes_at: job.finishes_at }))];
-  const cancelableJobs = [...activeUnitJobs.map((job) => ({ id: job.id, type: "unit" as const, label: state.unitDefs.find((unit) => unit.key === job.unit_key)?.name ?? "Einheit", finishes_at: job.finishes_at })), ...activeBuildingJobs.map((job) => ({ id: job.id, type: "build" as const, label: job.job_type === "food" ? "+10 Nahrung" : job.job_type === "queue" ? "Weitere Queue" : job.job_type === "upgrade" ? "Upgrade" : "Bauauftrag", finishes_at: job.finishes_at }))];
+  const activeJobs = [
+    ...activeUnitJobs.map((job) => ({ id: job.id, type: "unit" as const, label: state.unitDefs.find((unit) => unit.key === job.unit_key)?.name ?? "Einheit", finishes_at: job.finishes_at })),
+    ...activeBuildingJobs.map((job) => ({ id: job.id, type: "build" as const, label: job.job_type === "food" ? "+10 Nahrung" : job.job_type === "queue" ? "Weitere Queue" : job.job_type === "upgrade" ? "Upgrade" : "Bauauftrag", finishes_at: job.finishes_at })),
+  ];
+  const freeSlots = owned.queue_slots - occupiedQueues;
 
   return <div className="units-view">
     <div className="panel-heading"><p className="section-kicker">Hauptdorf {home.y + 1}-{home.x + 1}</p><h2>{def.name}</h2><p>{occupiedQueues} / {owned.queue_slots} Queues belegt{def.kind !== "main" && def.kind !== "food" ? ` · Upgrade ${owned.upgrade_level}` : ""}</p></div>
     <section className="building-queue-panel">
       <header><div className="selected-building-icon">{def.icon}</div><div><p className="section-kicker">Gebäude</p><h3>{def.name}</h3><span>{occupiedQueues} / {owned.queue_slots} Queues belegt</span></div></header>
-      <div className="queue-slots">{Array.from({ length: owned.queue_slots }, (_, index) => {
-        const job = jobs[index];
-        const cancelable = cancelableJobs[index];
-
-        return job ? <form action={cancelJob} key={index}><input type="hidden" name="jobId" value={cancelable.id} /><input type="hidden" name="jobType" value={cancelable.type} /><input type="hidden" name="returnView" value={buildingKey} /><button className="queue-slot queue-slot-button" type="submit"><div className="queue-slot-head"><b>Queue {index + 1}</b><span className="queue-status queue-status-active">Läuft</span></div><strong>{job.label}</strong><span className="queue-time"><Countdown finishesAt={job.finishes_at} initialRemainingSeconds={Math.max(0, Math.ceil((new Date(job.finishes_at).getTime() - now) / 1000))} /></span><small>Klicken zum Abbrechen</small></button></form> : <div className="queue-slot" key={index}><div className="queue-slot-head"><b>Queue {index + 1}</b><span className="queue-status">Bereit</span></div><strong>Kein Auftrag</strong><small>Frei für neue Einträge</small></div>;
-      })}</div>
+      <p className="queue-summary">{occupiedQueues} / {owned.queue_slots} Queues belegt{freeSlots > 0 ? ` · ${freeSlots} frei` : ""}</p>
+      {activeJobs.length > 0 ? <div className="queue-slots">
+        {activeJobs.map((job) => <form action={cancelJob} key={`${job.type}-${job.id}`}><input type="hidden" name="jobId" value={job.id} /><input type="hidden" name="jobType" value={job.type} /><input type="hidden" name="returnView" value={buildingKey} /><button className="queue-slot queue-slot-button" type="submit"><div className="queue-slot-head"><span className="queue-status queue-status-active">Läuft</span></div><strong>{job.label}</strong><span className="queue-time"><Countdown finishesAt={job.finishes_at} initialRemainingSeconds={Math.max(0, Math.ceil((new Date(job.finishes_at).getTime() - now) / 1000))} /></span><small>Klicken zum Abbrechen</small></button></form>)}
+      </div> : <p className="no-buildings">Keine aktiven Aufträge.</p>}
       <form className="queue-upgrade-form" action={startBuild}><input type="hidden" name="building" value={buildingKey} /><input type="hidden" name="mode" value="queue" /><input type="hidden" name="returnView" value={buildingKey} /><button>Weitere Queue bauen · Gold {queueCost.gold} · Holz {queueCost.wood} · {Math.ceil(queueCost.seconds / 60)}m</button></form>
       {def.kind === "food" && <form className="queue-upgrade-form" action={startBuild}><input type="hidden" name="building" value={buildingKey} /><input type="hidden" name="mode" value="food" /><input type="hidden" name="returnView" value={buildingKey} /><button>+10 Nahrung · Gold {foodCost.gold} · Holz {foodCost.wood} · {Math.ceil(foodCost.seconds / 60)}m</button></form>}      {(def.kind === "upgrade" || def.kind === "special") && <form className="queue-upgrade-form" action={startBuild}><input type="hidden" name="building" value={buildingKey} /><input type="hidden" name="mode" value="upgrade" /><input type="hidden" name="returnView" value={buildingKey} /><button disabled={hasUpgradeJob}>Upgrade +1 · Gold {upgradeCost.gold} · Holz {upgradeCost.wood} · {Math.ceil(upgradeCost.seconds / 60)}m</button></form>}
       <div className="selected-unit-list">
