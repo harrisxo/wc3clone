@@ -50,9 +50,21 @@ export function BuildingDetailView({ state, home, buildingKey }: { state: Return
             const isBuilt = heroStatus?.alive === 1;
             const isDead = heroStatus?.alive === 0;
             const statusText = !heroStatus ? "Unbeschworen" : isDead ? "Gefallen" : "Im Einsatz";
-            const actionLabel = !heroStatus || isDead ? (!heroStatus ? "Bauen" : "Wiederbeleben") : "Einzigartig";
+            const actionLabel = !heroStatus ? "Bauen" : "Wiederbeleben";
+            const description = !heroStatus ? "Noch nicht beschworen" : isDead ? "Kann im Heldenturm wiederbelebt werden" : "Bereits im Dienst";
+            const info = <span className="selected-unit-info"><h4>{unit.name}</h4><small>Level {heroStatus?.level ?? 1} · {statusText}</small><p>{description}</p></span>;
 
-            return <article className="selected-unit selected-unit-hero" key={unit.key}><div><h4>{unit.name}</h4><small>Level {heroStatus?.level ?? 1} · {statusText}</small><p>{!heroStatus ? "Noch nicht beschworen" : isDead ? "Kann im Heldenturm wiederbelebt werden" : "Bereits im Dienst"}</p></div>{isBuilt ? <button className="selected-unit-action" disabled>Einzigartig</button> : <form action={trainUnit}><input type="hidden" name="unit" value={unit.key} /><input type="hidden" name="returnView" value={buildingKey} /><button className="selected-unit-action">{actionLabel}</button></form>}</article>;
+            if (isBuilt) return <article className="selected-unit selected-unit-hero" key={unit.key}>
+              <span className="selected-unit-trigger selected-unit-static"><span className="unit-icon">{unit.icon}</span>{info}</span>
+              <button className="selected-unit-action" disabled>Einzigartig</button>
+            </article>;
+
+            return <form className="selected-unit selected-unit-hero" action={trainUnit} key={unit.key}>
+              <input type="hidden" name="unit" value={unit.key} />
+              <input type="hidden" name="returnView" value={buildingKey} />
+              <button type="submit" className="selected-unit-trigger"><span className="unit-icon">{unit.icon}</span>{info}</button>
+              <span className="selected-unit-action-label">{actionLabel}</span>
+            </form>;
           })}
         </div>
       </section>}
