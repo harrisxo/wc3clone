@@ -7,7 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 const dataDirectory = path.join(process.cwd(), "data");
 mkdirSync(dataDirectory, { recursive: true });
 const database = new DatabaseSync(path.join(dataDirectory, "grenzmark.db"));
-database.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
+database.exec("PRAGMA journal_mode = WAL;");
 
 function seedWorld() {
   const coordinates: { x: number; y: number }[] = [];
@@ -102,20 +102,59 @@ const migrations: { version: number; run: () => void }[] = [
       seedWorld();
     },
   },
+  {
+    // gold was declared INTEGER even though accrueResources() always wrote
+    // fractional hourly accrual into it; align it with wood's REAL type.
+    version: 2,
+    run: () => {
+      database.exec(`
+        CREATE TABLE users_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT NOT NULL COLLATE NOCASE UNIQUE,
+          display_name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+          email TEXT NOT NULL COLLATE NOCASE UNIQUE,
+          password_hash TEXT NOT NULL,
+          race TEXT CHECK (race IN ('human', 'orc', 'undead', 'nightelf') OR race IS NULL),
+          is_admin INTEGER NOT NULL DEFAULT 0 CHECK (is_admin IN (0, 1)),
+          gold REAL NOT NULL DEFAULT 0 CHECK (gold >= 0),
+          wood REAL NOT NULL DEFAULT 0 CHECK (wood >= 0),
+          total_workers INTEGER NOT NULL DEFAULT 5 CHECK (total_workers >= 5),
+          gold_workers INTEGER NOT NULL DEFAULT 0 CHECK (gold_workers >= 0),
+          wood_workers INTEGER NOT NULL DEFAULT 0 CHECK (wood_workers >= 0),
+          food_capacity INTEGER NOT NULL DEFAULT 10 CHECK (food_capacity >= 10),
+          resources_updated_at TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        INSERT INTO users_new (id, username, display_name, email, password_hash, race, is_admin, gold, wood, total_workers, gold_workers, wood_workers, food_capacity, resources_updated_at, created_at)
+          SELECT id, username, display_name, email, password_hash, race, is_admin, gold, wood, total_workers, gold_workers, wood_workers, food_capacity, resources_updated_at, created_at FROM users;
+        DROP TABLE users;
+        ALTER TABLE users_new RENAME TO users;
+      `);
+    },
+  },
 ];
 
 const { user_version: currentVersion } = database.prepare("PRAGMA user_version").get() as { user_version: number };
-for (const migration of migrations.filter((m) => m.version > currentVersion)) {
-  database.exec("BEGIN IMMEDIATE");
-  try {
-    migration.run();
-    database.exec(`PRAGMA user_version = ${migration.version}`);
-    database.exec("COMMIT");
-  } catch (error) {
-    database.exec("ROLLBACK");
-    throw error;
+const pendingMigrations = migrations.filter((m) => m.version > currentVersion);
+if (pendingMigrations.length > 0) {
+  // Table-rebuild migrations (DROP + RENAME) would otherwise cascade-delete every
+  // row referencing users(id) via ON DELETE CASCADE; foreign_keys can only be
+  // toggled outside a transaction, so it wraps the whole migration run.
+  database.exec("PRAGMA foreign_keys = OFF");
+  for (const migration of pendingMigrations) {
+    database.exec("BEGIN IMMEDIATE");
+    try {
+      migration.run();
+      database.exec(`PRAGMA user_version = ${migration.version}`);
+      database.exec("COMMIT");
+    } catch (error) {
+      database.exec("ROLLBACK");
+      database.exec("PRAGMA foreign_keys = ON");
+      throw error;
+    }
   }
 }
+database.exec("PRAGMA foreign_keys = ON");
 
 // Not a schema migration: keeps exactly one admin assigned as users come and go.
 if (!(database.prepare("SELECT 1 FROM users WHERE is_admin = 1 LIMIT 1").get())) {
