@@ -6,8 +6,9 @@ import { unitsByRace } from "@/lib/game-data";
 import type { Race } from "@/lib/auth";
 
 export function updateRankingsIfDue(){
-  const now=Date.now(); const marker=database.prepare("SELECT value FROM app_meta WHERE key='ranking_last_calculated_at'").get() as {value:string}|undefined;
-  if(marker&&now-new Date(marker.value).getTime()<600_000)return;
+  const now=Date.now();
+  const claimed=database.prepare("INSERT INTO app_meta(key,value) VALUES('ranking_last_calculated_at',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value WHERE value<=?").run(new Date(now).toISOString(),new Date(now-600_000).toISOString());
+  if(claimed.changes!==1)return;
   const users=database.prepare("SELECT id,race FROM users WHERE race IS NOT NULL").all() as {id:number;race:Race}[];
   for(const user of users){
     processGameJobs(user.id,user.race); const eco=accrueResources(user.id);
@@ -20,7 +21,6 @@ export function updateRankingsIfDue(){
     const points=Math.floor(mines*10+villages+supply+resourcePoints+upgradePoints);
     database.prepare(`INSERT INTO ranking_snapshots(user_id,points,villages,mines,unit_supply,resource_points,hero_points,upgrade_points,calculated_at) VALUES(?,?,?,?,?,?,0,?,?) ON CONFLICT(user_id) DO UPDATE SET points=excluded.points,villages=excluded.villages,mines=excluded.mines,unit_supply=excluded.unit_supply,resource_points=excluded.resource_points,upgrade_points=excluded.upgrade_points,calculated_at=excluded.calculated_at`).run(user.id,points,villages,mines,supply,resourcePoints,upgradePoints,new Date(now).toISOString());
   }
-  database.prepare("INSERT INTO app_meta(key,value) VALUES('ranking_last_calculated_at',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(new Date(now).toISOString());
 }
 
 export function getRanking(){
