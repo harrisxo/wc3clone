@@ -52,7 +52,7 @@ export function BuildingDetailView({ state, home, buildingKey }: { state: Return
             const statusText = !heroStatus ? "Unbeschworen" : isDead ? "Gefallen" : "Im Einsatz";
             const actionLabel = !heroStatus || isDead ? (!heroStatus ? "Bauen" : "Wiederbeleben") : "Einzigartig";
 
-            return <article className="selected-unit selected-unit-hero" key={unit.key}><div><h4>{unit.name}</h4><small>Level {heroStatus?.level ?? 1} · {statusText}</small><p>{!heroStatus ? "Noch nicht beschworen" : isDead ? "Kann im Heldenturm wiederbelebt werden" : "Bereits im Dienst"}</p></div>{isBuilt ? <button disabled>Einzigartig</button> : <form action={trainUnit}><input type="hidden" name="unit" value={unit.key} /><input type="hidden" name="returnView" value={buildingKey} /><button>{actionLabel}</button></form>}</article>;
+            return <article className="selected-unit selected-unit-hero" key={unit.key}><div><h4>{unit.name}</h4><small>Level {heroStatus?.level ?? 1} · {statusText}</small><p>{!heroStatus ? "Noch nicht beschworen" : isDead ? "Kann im Heldenturm wiederbelebt werden" : "Bereits im Dienst"}</p></div>{isBuilt ? <button className="selected-unit-action" disabled>Einzigartig</button> : <form action={trainUnit}><input type="hidden" name="unit" value={unit.key} /><input type="hidden" name="returnView" value={buildingKey} /><button className="selected-unit-action">{actionLabel}</button></form>}</article>;
           })}
         </div>
       </section>}
