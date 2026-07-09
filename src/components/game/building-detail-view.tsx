@@ -1,4 +1,4 @@
-import { cancelJob, startBuild, trainUnit } from "@/lib/actions/game";
+﻿import { cancelJob, startBuild, trainUnit } from "@/lib/actions/game";
 import type { getGameState } from "@/lib/game-system";
 import { buildingUpgradeCost, foodBuildingCost, queueUpgradeCost } from "@/lib/costs";
 import { Countdown } from "@/components/game/countdown";
@@ -20,26 +20,39 @@ export function BuildingDetailView({ state, home, buildingKey }: { state: Return
   const cancelableJobs = [...activeUnitJobs.map((job) => ({ id: job.id, type: "unit" as const, label: state.unitDefs.find((unit) => unit.key === job.unit_key)?.name ?? "Einheit", finishes_at: job.finishes_at })), ...activeBuildingJobs.map((job) => ({ id: job.id, type: "build" as const, label: job.job_type === "food" ? "+10 Nahrung" : job.job_type === "queue" ? "Weitere Queue" : job.job_type === "upgrade" ? "Upgrade" : "Bauauftrag", finishes_at: job.finishes_at }))];
 
   return <div className="units-view">
-    <div className="panel-heading"><p className="section-kicker">Hauptdorf {home.y + 1}-{home.x + 1}</p><h2>{def.name}</h2><p>{occupiedQueues} / {owned.queue_slots} Queues belegt{def.kind !== "main" && def.kind !== "food" ? ` · Upgrade ${owned.upgrade_level}` : ""}</p></div>
+    <div className="panel-heading"><p className="section-kicker">Hauptdorf {home.y + 1}-{home.x + 1}</p><h2>{def.name}</h2><p>{occupiedQueues} / {owned.queue_slots} Queues belegt{def.kind !== "main" && def.kind !== "food" ? ` Â· Upgrade ${owned.upgrade_level}` : ""}</p></div>
     <section className="building-queue-panel">
-      <header><div className="selected-building-icon">{def.icon}</div><div><p className="section-kicker">Gebäude</p><h3>{def.name}</h3><span>{occupiedQueues} / {owned.queue_slots} Queues belegt</span></div></header>
+      <header><div className="selected-building-icon">{def.icon}</div><div><p className="section-kicker">GebÃ¤ude</p><h3>{def.name}</h3><span>{occupiedQueues} / {owned.queue_slots} Queues belegt</span></div></header>
       <div className="queue-slots">{Array.from({ length: owned.queue_slots }, (_, index) => {
         const job = jobs[index];
         const cancelable = cancelableJobs[index];
 
-        return job ? <form action={cancelJob} key={index}><input type="hidden" name="jobId" value={cancelable.id} /><input type="hidden" name="jobType" value={cancelable.type} /><input type="hidden" name="returnView" value={buildingKey} /><button className="queue-slot queue-slot-button" type="submit"><div className="queue-slot-head"><b>Queue {index + 1}</b><span className="queue-status queue-status-active">Läuft</span></div><strong>{job.label}</strong><span className="queue-time"><Countdown finishesAt={job.finishes_at} initialRemainingSeconds={Math.max(0, Math.ceil((new Date(job.finishes_at).getTime() - now) / 1000))} /></span><small>Klicken zum Abbrechen</small></button></form> : <div className="queue-slot" key={index}><div className="queue-slot-head"><b>Queue {index + 1}</b><span className="queue-status">Bereit</span></div><strong>Kein Auftrag</strong><small>Frei für neue Einträge</small></div>;
+        return job ? <form action={cancelJob} key={index}><input type="hidden" name="jobId" value={cancelable.id} /><input type="hidden" name="jobType" value={cancelable.type} /><input type="hidden" name="returnView" value={buildingKey} /><button className="queue-slot queue-slot-button" type="submit"><div className="queue-slot-head"><b>Queue {index + 1}</b><span className="queue-status queue-status-active">LÃ¤uft</span></div><strong>{job.label}</strong><span className="queue-time"><Countdown finishesAt={job.finishes_at} initialRemainingSeconds={Math.max(0, Math.ceil((new Date(job.finishes_at).getTime() - now) / 1000))} /></span><small>Klicken zum Abbrechen</small></button></form> : <div className="queue-slot" key={index}><div className="queue-slot-head"><b>Queue {index + 1}</b><span className="queue-status">Bereit</span></div><strong>Kein Auftrag</strong><small>Frei fÃ¼r neue EintrÃ¤ge</small></div>;
       })}</div>
-      <form className="queue-upgrade-form" action={startBuild}><input type="hidden" name="building" value={buildingKey} /><input type="hidden" name="mode" value="queue" /><input type="hidden" name="returnView" value={buildingKey} /><button>Weitere Queue bauen · ● {queueCost.gold} ♣ {queueCost.wood} · ◷ {Math.ceil(queueCost.seconds / 60)}m</button></form>
-      {def.kind === "food" && <form className="queue-upgrade-form" action={startBuild}><input type="hidden" name="building" value={buildingKey} /><input type="hidden" name="mode" value="food" /><input type="hidden" name="returnView" value={buildingKey} /><button disabled={hasFoodJob}>+10 Nahrung · ● {foodCost.gold} ♣ {foodCost.wood} · ◷ {Math.ceil(foodCost.seconds / 60)}m</button></form>}
-      {(def.kind === "upgrade" || def.kind === "special") && <form className="queue-upgrade-form" action={startBuild}><input type="hidden" name="building" value={buildingKey} /><input type="hidden" name="mode" value="upgrade" /><input type="hidden" name="returnView" value={buildingKey} /><button disabled={hasUpgradeJob}>Upgrade +1 · ● {upgradeCost.gold} ♣ {upgradeCost.wood} · ◷ {Math.ceil(upgradeCost.seconds / 60)}m</button></form>}
-      {availableUnits.length > 0 && <div className="selected-unit-list">
-        {availableUnits.map((unit) => {
-          const heroStatus = state.heroUnits.find((hero) => hero.hero_key === unit.key);
-          const isHero = unit.role === "hero";
+      <form className="queue-upgrade-form" action={startBuild}><input type="hidden" name="building" value={buildingKey} /><input type="hidden" name="mode" value="queue" /><input type="hidden" name="returnView" value={buildingKey} /><button>Weitere Queue bauen Â· Gold {queueCost.gold} Â· Holz {queueCost.wood} Â· {Math.ceil(queueCost.seconds / 60)}m</button></form>
+      {def.kind === "food" && <form className="queue-upgrade-form" action={startBuild}><input type="hidden" name="building" value={buildingKey} /><input type="hidden" name="mode" value="food" /><input type="hidden" name="returnView" value={buildingKey} /><button>+10 Nahrung Â· Gold {foodCost.gold} Â· Holz {foodCost.wood} Â· {Math.ceil(foodCost.seconds / 60)}m</button></form>}      {(def.kind === "upgrade" || def.kind === "special") && <form className="queue-upgrade-form" action={startBuild}><input type="hidden" name="building" value={buildingKey} /><input type="hidden" name="mode" value="upgrade" /><input type="hidden" name="returnView" value={buildingKey} /><button disabled={hasUpgradeJob}>Upgrade +1 Â· Gold {upgradeCost.gold} Â· Holz {upgradeCost.wood} Â· {Math.ceil(upgradeCost.seconds / 60)}m</button></form>}
+      <div className="selected-unit-list">
+        {availableUnits.filter((unit) => unit.role !== "hero").map((unit) => <article className="selected-unit" key={unit.key}><span className="unit-icon">{unit.icon}</span><div><h4>{unit.name}</h4><small>{unit.supply} Nahrung · {Math.ceil(unit.seconds / 60)}m</small><p>Gold {unit.gold} · Holz {unit.wood}</p></div><form action={trainUnit}><input type="hidden" name="unit" value={unit.key} /><input type="hidden" name="returnView" value={buildingKey} /><button>Ausbilden</button></form></article>)}
+      </div>
+      {availableUnits.some((unit) => unit.role === "hero") && <section className="hero-unit-section">
+        <h3>Helden</h3>
+        <div className="selected-unit-list">
+          {availableUnits.filter((unit) => unit.role === "hero").map((unit) => {
+            const heroStatus = state.heroUnits.find((hero) => hero.hero_key === unit.key);
+            const isBuilt = heroStatus?.alive === 1;
+            const isDead = heroStatus?.alive === 0;
+            const statusText = !heroStatus ? "Unbeschworen" : isDead ? "Gefallen" : "Im Einsatz";
+            const actionLabel = !heroStatus || isDead ? (!heroStatus ? "Bauen" : "Wiederbeleben") : "Einzigartig";
 
-          return <article className="selected-unit" key={unit.key}><span className="unit-icon">{unit.icon}</span><div><h4>{unit.name}</h4><small>{isHero ? `Einmalig · Level ${heroStatus?.level ?? 1}` : `${unit.supply} Nahrung · ◷ ${Math.ceil(unit.seconds / 60)}m`}</small><p>{isHero ? heroStatus?.alive === 0 ? "Gefallen · Wiederbelebung möglich" : "Bereits im Dienst" : `● ${unit.gold} &nbsp; ♣ ${unit.wood}`}</p></div>{isHero ? heroStatus?.alive === 1 ? <button disabled>Einzigartig</button> : <form action={trainUnit}><input type="hidden" name="unit" value={unit.key} /><input type="hidden" name="returnView" value={buildingKey} /><button>Wiederbeleben</button></form> : <form action={trainUnit}><input type="hidden" name="unit" value={unit.key} /><input type="hidden" name="returnView" value={buildingKey} /><button>Ausbilden</button></form>}</article>;
-        })}
-      </div>}
+            return <article className="selected-unit selected-unit-hero" key={unit.key}><div><h4>{unit.name}</h4><small>Level {heroStatus?.level ?? 1} · {statusText}</small><p>{!heroStatus ? "Noch nicht beschworen" : isDead ? "Kann im Heldenturm wiederbelebt werden" : "Bereits im Dienst"}</p></div>{isBuilt ? <button disabled>Einzigartig</button> : <form action={trainUnit}><input type="hidden" name="unit" value={unit.key} /><input type="hidden" name="returnView" value={buildingKey} /><button>{actionLabel}</button></form>}</article>;
+          })}
+        </div>
+      </section>}
     </section>
   </div>;
 }
+
+
+
+
+
