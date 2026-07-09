@@ -22,4 +22,3 @@ export async function changeWorkerAssignment(formData: FormData) {
   database.prepare(`UPDATE users SET ${column} = ${column} + ? WHERE id = ?`).run(delta, user.id);
   redirect("/game?view=arbeiter");
 }
-

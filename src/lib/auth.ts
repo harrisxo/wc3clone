@@ -9,7 +9,7 @@ export type Race = "human" | "orc" | "undead" | "nightelf";
 export type User = { id: number; username: string; displayName: string; email: string; race: Race | null };
 
 function scrypt(password: string, salt: string): Promise<Buffer> {
-  return new Promise((resolve, reject) => scryptCallback(password, salt, 64, (error, key) => error ? reject(error) : resolve(key)));
+  return new Promise((resolve, reject) => scryptCallback(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))));
 }
 export async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
@@ -22,7 +22,9 @@ export async function verifyPassword(password: string, storedHash: string) {
   const suppliedKey = await scrypt(password, salt);
   return storedKey.length === suppliedKey.length && timingSafeEqual(storedKey, suppliedKey);
 }
-function hashToken(token: string) { return createHash("sha256").update(token).digest("hex"); }
+function hashToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
+}
 
 export async function createSession(userId: number) {
   const token = randomBytes(32).toString("base64url");
@@ -42,6 +44,3 @@ export async function getCurrentUser(): Promise<User | null> {
   const user = database.prepare(`SELECT users.id, users.username, users.display_name AS displayName, users.email, users.race FROM sessions JOIN users ON users.id = sessions.user_id WHERE sessions.token_hash = ? AND sessions.expires_at > ?`).get(hashToken(token), new Date().toISOString()) as User | undefined;
   return user ?? null;
 }
-
-
-

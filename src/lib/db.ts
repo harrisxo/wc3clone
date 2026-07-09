@@ -157,7 +157,7 @@ if (pendingMigrations.length > 0) {
 database.exec("PRAGMA foreign_keys = ON");
 
 // Not a schema migration: keeps exactly one admin assigned as users come and go.
-if (!(database.prepare("SELECT 1 FROM users WHERE is_admin = 1 LIMIT 1").get())) {
+if (!database.prepare("SELECT 1 FROM users WHERE is_admin = 1 LIMIT 1").get()) {
   const founder = database.prepare("SELECT id FROM users ORDER BY id LIMIT 1").get() as { id: number } | undefined;
   if (founder) database.prepare("UPDATE users SET is_admin = 1 WHERE id = ?").run(founder.id);
 }

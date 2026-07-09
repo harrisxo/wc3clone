@@ -11,7 +11,9 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export async function register(_previousState: AuthState, formData: FormData): Promise<AuthState> {
   const username = String(formData.get("username") ?? "").trim();
   const displayName = String(formData.get("displayName") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
   const password = String(formData.get("password") ?? "");
   if (username.length < 3 || username.length > 24 || !usernamePattern.test(username)) return { error: "Der Name muss 3–24 Zeichen lang sein und darf Buchstaben, Zahlen, _ und - enthalten." };
   if (displayName.length < 3 || displayName.length > 24 || !usernamePattern.test(displayName)) return { error: "Der Spielername muss 3–24 Zeichen lang sein und darf Buchstaben, Zahlen, _ und - enthalten." };
@@ -48,6 +50,7 @@ export async function login(_previousState: AuthState, formData: FormData): Prom
   redirect("/game");
 }
 
-export async function logout() { await deleteSession(); redirect("/"); }
-
-
+export async function logout() {
+  await deleteSession();
+  redirect("/");
+}

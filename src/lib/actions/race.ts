@@ -14,9 +14,7 @@ export async function chooseRace(formData: FormData) {
   const race = String(formData.get("race") ?? "") as Race;
   if (!races.includes(race)) redirect("/game");
 
-  database
-    .prepare("UPDATE users SET race = ? WHERE id = ? AND race IS NULL")
-    .run(race, user.id);
+  database.prepare("UPDATE users SET race = ? WHERE id = ? AND race IS NULL").run(race, user.id);
 
   redirect("/game");
 }

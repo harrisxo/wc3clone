@@ -4,8 +4,15 @@ import { database } from "@/lib/db";
 
 export type FieldType = "small" | "medium" | "goldmine";
 export type WorldTile = {
-  x: number; y: number; owner_user_id: number | null; is_main_village: number;
-  field_type: FieldType; monster_count: number; gold_reward: number; conquered_by_user_id: number | null; owner_name: string | null;
+  x: number;
+  y: number;
+  owner_user_id: number | null;
+  is_main_village: number;
+  field_type: FieldType;
+  monster_count: number;
+  gold_reward: number;
+  conquered_by_user_id: number | null;
+  owner_name: string | null;
 };
 type Coordinate = { x: number; y: number };
 
@@ -18,10 +25,11 @@ function randomField() {
 
 function addColumns(startX: number, count: number) {
   const insert = database.prepare("INSERT INTO world_tiles (x, y, field_type, monster_count, gold_reward) VALUES (?, ?, ?, ?, ?)");
-  for (let x = startX; x < startX + count; x += 1) for (let y = 0; y < 10; y += 1) {
-    const stats = randomField();
-    insert.run(x, y, stats.type, stats.monsters, stats.gold);
-  }
+  for (let x = startX; x < startX + count; x += 1)
+    for (let y = 0; y < 10; y += 1) {
+      const stats = randomField();
+      insert.run(x, y, stats.type, stats.monsters, stats.gold);
+    }
 }
 
 export function expandWorldByTime() {
@@ -65,7 +73,10 @@ export function ensureHomeTile(userId: number): Coordinate {
   database.exec("BEGIN IMMEDIATE");
   try {
     const existing = database.prepare("SELECT x, y FROM world_tiles WHERE owner_user_id = ?").get(userId) as Coordinate | undefined;
-    if (existing) { database.exec("COMMIT"); return existing; }
+    if (existing) {
+      database.exec("COMMIT");
+      return existing;
+    }
 
     let user = database.prepare("SELECT is_admin FROM users WHERE id = ?").get(userId) as { is_admin: number } | undefined;
     if (!user) throw new Error("Der Spieler existiert nicht.");
@@ -99,7 +110,8 @@ export function getWorldMap(userId: number, requestedStart?: number) {
   const maxStart = Math.max(0, dimensions.width - 10);
   const homeStart = Math.min(maxStart, Math.max(0, home.x - 4));
   const startX = requestedStart === undefined ? homeStart : Math.min(maxStart, Math.max(0, Math.floor(requestedStart)));
-  const tiles = database.prepare("SELECT wt.x, wt.y, wt.owner_user_id, wt.is_main_village, wt.field_type, wt.monster_count, wt.gold_reward, wt.conquered_by_user_id, COALESCE(village_owner.display_name, field_owner.display_name) AS owner_name FROM world_tiles wt LEFT JOIN users village_owner ON village_owner.id = wt.owner_user_id LEFT JOIN users field_owner ON field_owner.id = wt.conquered_by_user_id WHERE wt.x BETWEEN ? AND ? ORDER BY wt.y, wt.x").all(startX, startX + 9) as unknown as WorldTile[];
+  const tiles = database
+    .prepare("SELECT wt.x, wt.y, wt.owner_user_id, wt.is_main_village, wt.field_type, wt.monster_count, wt.gold_reward, wt.conquered_by_user_id, COALESCE(village_owner.display_name, field_owner.display_name) AS owner_name FROM world_tiles wt LEFT JOIN users village_owner ON village_owner.id = wt.owner_user_id LEFT JOIN users field_owner ON field_owner.id = wt.conquered_by_user_id WHERE wt.x BETWEEN ? AND ? ORDER BY wt.y, wt.x")
+    .all(startX, startX + 9) as unknown as WorldTile[];
   return { tiles, home, startX, height: dimensions.height, totalWidth: dimensions.width, leftStart: startX > 0 ? Math.max(0, startX - 10) : null, rightStart: startX < maxStart ? Math.min(maxStart, startX + 10) : null };
 }
-

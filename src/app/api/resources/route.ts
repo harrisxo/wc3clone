@@ -12,4 +12,3 @@ export async function GET() {
   const state = getGameState(user.id, user.race, { persist: false });
   return NextResponse.json({ ...state.economy, foodUsed: state.supplyUsed, foodCapacity: state.foodCapacity });
 }
-
