@@ -19,7 +19,8 @@ export async function startBuild(formData:FormData){
   const idle=state.economy.totalWorkers-state.economy.goldWorkers-state.economy.woodWorkers-state.busyWorkers;
   if(jobType==="build"&&idle<1) redirect(`/game?view=${returnView}&notice=worker`);
   if(state.economy.gold<gold||state.economy.wood<wood) redirect(`/game?view=${returnView}&notice=resources`);
-  database.prepare("UPDATE users SET gold=gold-?,wood=wood-? WHERE id=?").run(gold,wood,user.id);
+  const deduction=database.prepare("UPDATE users SET gold=gold-?,wood=wood-? WHERE id=? AND gold>=? AND wood>=?").run(gold,wood,user.id,gold,wood);
+  if(deduction.changes!==1) redirect(`/game?view=${returnView}&notice=resources`);
   database.prepare("INSERT INTO build_jobs(user_id,building_key,job_type,finishes_at) VALUES(?,?,?,?)").run(user.id,key,jobType,new Date(Date.now()+seconds*1000).toISOString());
   redirect(`/game?view=${returnView}`);
 }
@@ -31,7 +32,8 @@ export async function trainUnit(formData:FormData){
   const active=state.unitJobs.filter(j=>j.building_key===def.building).length; if(active>=building.queue_slots) redirect("/game?view=einheiten&notice=queue");
   if(state.supplyUsed+def.supply>state.foodCapacity) redirect("/game?view=einheiten&notice=food");
   if(state.economy.gold<def.gold||state.economy.wood<def.wood) redirect("/game?view=einheiten&notice=resources");
-  database.prepare("UPDATE users SET gold=gold-?,wood=wood-? WHERE id=?").run(def.gold,def.wood,user.id);
+  const deduction=database.prepare("UPDATE users SET gold=gold-?,wood=wood-? WHERE id=? AND gold>=? AND wood>=?").run(def.gold,def.wood,user.id,def.gold,def.wood);
+  if(deduction.changes!==1) redirect("/game?view=einheiten&notice=resources");
   database.prepare("INSERT INTO unit_jobs(user_id,building_key,unit_key,finishes_at) VALUES(?,?,?,?)").run(user.id,def.building,key,new Date(Date.now()+def.seconds*1000).toISOString());
   redirect("/game?view=einheiten");
 }
