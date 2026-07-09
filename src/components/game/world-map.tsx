@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { WorldTile } from "@/lib/world";
 import { fieldInfo } from "./shared";
+import { CastleIcon } from "./castle-icon";
 
 export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, rightStart, selectedTile }: {
   tiles: WorldTile[]; userId: number; home: { x: number; y: number }; startX: number; totalWidth: number;
@@ -33,7 +34,7 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
               title={`${label} · Feld ${fieldName}`}
             >
               <span className="tile-label">{fieldName}</span>
-              {isVillage && <><span className="village-icon" aria-hidden="true">♜</span>{isOwnHome && <small>Hauptdorf</small>}</>}
+              {isVillage && <><span className="village-icon" aria-hidden="true"><CastleIcon /></span>{isOwnHome && <small>Hauptdorf</small>}</>}
             </Link>;
           })}
         </div>
@@ -43,7 +44,10 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
     <div className="map-legend"><span><i className="legend-home" /> Dein Hauptdorf</span><span><i className="legend-village" /> Anderes Dorf</span><span><i /> Unbesetzt</span><strong>Spalten {startX + 1}–{startX + 10} von {totalWidth}</strong></div>
     {selectedTile && <div className={`field-details details-${selectedTile.field_type}`}>
       <div className="field-details-heading"><span className="field-detail-symbol">{fieldInfo[selectedTile.field_type].symbol}</span><div><p className="section-kicker">Feld {selectedTile.y + 1}-{selectedTile.x + 1}</p><h3>{selectedTile.is_main_village ? "Hauptdorf" : fieldInfo[selectedTile.field_type].name}</h3></div></div>
-      {selectedTile.is_main_village ? <p className="field-description">Ein befestigtes Hauptdorf. Hauptdörfer können nicht wie neutrale Felder angegriffen werden.</p> : <>
+      {selectedTile.is_main_village ? <>
+        <div className="field-owner"><span>Besitzer</span><strong>{selectedTile.owner_name ?? "Unbekannt"}</strong></div>
+        <p className="field-description">Ein befestigtes Hauptdorf. Hauptdörfer können nicht wie neutrale Felder angegriffen werden.</p>
+      </> : <>
         <div className="field-intel"><div><span>Verteidigung</span><strong>{fieldInfo[selectedTile.field_type].danger}</strong></div><div><span>Möglicher Ertrag</span><strong>{fieldInfo[selectedTile.field_type].reward}</strong></div><div><span>Besitzer</span><strong>{selectedTile.owner_name ?? "Neutral"}</strong></div></div>
         <button className="attack-preview" type="button" disabled>Angriff folgt mit Einheiten</button>
       </>}

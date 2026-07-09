@@ -11,15 +11,12 @@ export function UnitsView({ state, home, selectedKey }: { state: ReturnType<type
   const activeUnitJobs=state.unitJobs.filter(job=>job.building_key===selected.key);
   const activeBuildingJobs=state.buildJobs.filter(job=>job.building_key===selected.key);
   const occupiedQueues=activeUnitJobs.length+activeBuildingJobs.length;
-  const hasArmy=state.stacks.some(stack=>stack.quantity>0);
+  const orderedDefs=[...builtDefs.filter(def=>def.kind!=="main"),...builtDefs.filter(def=>def.kind==="main")];
   return <div className="units-view">
     <div className="panel-heading"><p className="section-kicker">Hauptdorf {home.y+1}-{home.x+1}</p><h2>Ausbildung und Gebäude</h2><p>Nahrung: {state.supplyUsed} / {state.foodCapacity}</p></div>
     <div className="unit-building-layout">
       <nav className="unit-building-nav" aria-label="Ausbildungsgebäude">
-        <span className="building-nav-label">Hauptdorf</span>
-        {builtDefs.filter(def=>def.kind==="main").map(def=><Link className={selected.key===def.key?"active":""} href={`/game?view=einheiten&building=${def.key}`} key={def.key}><i>{def.icon}</i><span><strong>{def.name}</strong><small>Arbeiter und Verwaltung</small></span></Link>)}
-        <span className="building-nav-separator">Gebaute Gebäude</span>
-        {builtDefs.filter(def=>def.kind!=="main").map(def=><Link className={selected.key===def.key?"active":""} href={`/game?view=einheiten&building=${def.key}`} key={def.key}><i>{def.icon}</i><span><strong>{def.name}</strong><small>{state.unitDefs.some(unit=>unit.building===def.key)?"Einheiten ausbilden":"Upgrades und Verwaltung"}</small></span></Link>)}
+        {orderedDefs.map(def=><Link className={selected.key===def.key?"active":""} href={`/game?view=einheiten&building=${def.key}`} key={def.key}><i>{def.icon}</i><span><strong>{def.name}</strong><small>{def.kind==="main"?"Arbeiter und Verwaltung":state.unitDefs.some(unit=>unit.building===def.key)?"Einheiten ausbilden":"Upgrades und Verwaltung"}</small></span></Link>)}
         {builtDefs.length===1&&<p className="no-buildings">Noch keine weiteren Gebäude errichtet.</p>}
       </nav>
       <section className="building-queue-panel">
@@ -33,8 +30,8 @@ export function UnitsView({ state, home, selectedKey }: { state: ReturnType<type
       </section>
     </div>
     <div className="army-table-wrap"><table className="game-table"><thead><tr><th>Feld</th><th>Typ</th>{state.unitDefs.filter(unit=>!unit.worker).map(unit=><th title={unit.name} key={unit.key}>{unit.icon}</th>)}</tr></thead><tbody>
-      {hasArmy&&<><tr><td>Insgesamt</td><td>—</td>{state.unitDefs.filter(unit=>!unit.worker).map(unit=><td key={unit.key}>{quantities.get(unit.key)??0}</td>)}</tr><tr><td>{home.y+1}-{home.x+1}</td><td>HD</td>{state.unitDefs.filter(unit=>!unit.worker).map(unit=><td key={unit.key}>{quantities.get(unit.key)??0}</td>)}</tr></>}
-      {!hasArmy&&<tr><td colSpan={state.unitDefs.length+2}>Noch keine militärischen Einheiten vorhanden.</td></tr>}
+      <tr><td>Insgesamt</td><td>—</td>{state.unitDefs.filter(unit=>!unit.worker).map(unit=><td key={unit.key}>{quantities.get(unit.key)??0}</td>)}</tr>
+      <tr><td>{home.y+1}-{home.x+1}</td><td>HD</td>{state.unitDefs.filter(unit=>!unit.worker).map(unit=><td key={unit.key}>{quantities.get(unit.key)??0}</td>)}</tr>
     </tbody></table></div>
   </div>;
 }
