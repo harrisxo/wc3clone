@@ -16,7 +16,7 @@ export function BuildingDetailView({ state, home, buildingKey }: { state: Return
   const foodCost = foodBuildingCost(state.foodCapacity);
   const upgradeCost = buildingUpgradeCost(owned.upgrade_level);
   const activeJobs = [
-    ...activeUnitJobs.map((job) => ({ id: job.id, type: "unit" as const, label: state.unitDefs.find((unit) => unit.key === job.unit_key)?.name ?? "Einheit", finishes_at: job.finishes_at })),
+    ...activeUnitJobs.map((job) => ({ id: job.id, type: "unit" as const, label: `${state.unitDefs.find((unit) => unit.key === job.unit_key)?.name ?? "Einheit"}${job.quantity > 1 ? ` ×${job.quantity}` : ""}`, finishes_at: job.finishes_at })),
     ...activeBuildingJobs.map((job) => ({ id: job.id, type: "build" as const, label: job.job_type === "food" ? "+10 Nahrung" : job.job_type === "queue" ? "Weitere Queue" : job.job_type === "upgrade" ? "Upgrade" : "Bauauftrag", finishes_at: job.finishes_at })),
   ];
   const freeSlots = owned.queue_slots - occupiedQueues;
@@ -32,7 +32,15 @@ export function BuildingDetailView({ state, home, buildingKey }: { state: Return
       <form className="queue-upgrade-form" action={startBuild}><input type="hidden" name="building" value={buildingKey} /><input type="hidden" name="mode" value="queue" /><input type="hidden" name="returnView" value={buildingKey} /><button>Weitere Queue bauen · Gold {queueCost.gold} · Holz {queueCost.wood} · {Math.ceil(queueCost.seconds / 60)}m</button></form>
       {def.kind === "food" && <form className="queue-upgrade-form" action={startBuild}><input type="hidden" name="building" value={buildingKey} /><input type="hidden" name="mode" value="food" /><input type="hidden" name="returnView" value={buildingKey} /><button>+10 Nahrung · Gold {foodCost.gold} · Holz {foodCost.wood} · {Math.ceil(foodCost.seconds / 60)}m</button></form>}      {(def.kind === "upgrade" || def.kind === "special") && <form className="queue-upgrade-form" action={startBuild}><input type="hidden" name="building" value={buildingKey} /><input type="hidden" name="mode" value="upgrade" /><input type="hidden" name="returnView" value={buildingKey} /><button disabled={hasUpgradeJob}>Upgrade +1 · Gold {upgradeCost.gold} · Holz {upgradeCost.wood} · {Math.ceil(upgradeCost.seconds / 60)}m</button></form>}
       <div className="selected-unit-list">
-        {availableUnits.filter((unit) => unit.role !== "hero").map((unit) => <article className="selected-unit" key={unit.key}><span className="unit-icon">{unit.icon}</span><div><h4>{unit.name}</h4><small>{unit.supply} Nahrung · {Math.ceil(unit.seconds / 60)}m</small><p>Gold {unit.gold} · Holz {unit.wood}</p></div><form action={trainUnit}><input type="hidden" name="unit" value={unit.key} /><input type="hidden" name="returnView" value={buildingKey} /><button>Ausbilden</button></form></article>)}
+        {availableUnits.filter((unit) => unit.role !== "hero").map((unit) => <form className="selected-unit" action={trainUnit} key={unit.key}>
+          <input type="hidden" name="unit" value={unit.key} />
+          <input type="hidden" name="returnView" value={buildingKey} />
+          <button type="submit" className="selected-unit-trigger">
+            <span className="unit-icon">{unit.icon}</span>
+            <span className="selected-unit-info"><h4>{unit.name}</h4><small>{unit.supply} Nahrung · {Math.ceil(unit.seconds / 60)}m</small><p>Gold {unit.gold} · Holz {unit.wood}</p></span>
+          </button>
+          <label className="selected-unit-quantity"><span>Anzahl</span><input type="number" name="quantity" min={1} max={999} defaultValue={1} /></label>
+        </form>)}
       </div>
       {availableUnits.some((unit) => unit.role === "hero") && <section className="hero-unit-section">
         <h3>Helden</h3>

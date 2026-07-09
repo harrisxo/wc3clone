@@ -76,15 +76,21 @@ export async function trainUnit(formData: FormData) {
     redirect(`/game?view=${returnView}`);
   }
 
+  const requestedQuantity = Math.floor(Number(formData.get("quantity")));
+  const quantity = Number.isFinite(requestedQuantity) ? Math.min(999, Math.max(1, requestedQuantity)) : 1;
+
   const building = state.buildings.find((b) => b.building_key === def.building);
   if (!building) redirect(`/game?view=${returnView}&notice=building`);
   const active = state.unitJobs.filter((j) => j.building_key === def.building).length;
   if (active >= building.queue_slots) redirect(`/game?view=${returnView}&notice=queue`);
-  if (state.supplyUsed + def.supply > state.foodCapacity) redirect(`/game?view=${returnView}&notice=food`);
-  if (state.economy.gold < def.gold || state.economy.wood < def.wood) redirect(`/game?view=${returnView}&notice=resources`);
-  const deduction = database.prepare("UPDATE users SET gold=gold-?,wood=wood-? WHERE id=? AND gold>=? AND wood>=?").run(def.gold, def.wood, user.id, def.gold, def.wood);
+  const totalGold = def.gold * quantity;
+  const totalWood = def.wood * quantity;
+  const totalSeconds = def.seconds * quantity;
+  if (state.supplyUsed + def.supply * quantity > state.foodCapacity) redirect(`/game?view=${returnView}&notice=food`);
+  if (state.economy.gold < totalGold || state.economy.wood < totalWood) redirect(`/game?view=${returnView}&notice=resources`);
+  const deduction = database.prepare("UPDATE users SET gold=gold-?,wood=wood-? WHERE id=? AND gold>=? AND wood>=?").run(totalGold, totalWood, user.id, totalGold, totalWood);
   if (deduction.changes !== 1) redirect(`/game?view=${returnView}&notice=resources`);
-  database.prepare("INSERT INTO unit_jobs(user_id,building_key,unit_key,finishes_at) VALUES(?,?,?,?)").run(user.id, def.building, key, new Date(Date.now() + def.seconds * 1000).toISOString());
+  database.prepare("INSERT INTO unit_jobs(user_id,building_key,unit_key,quantity,finishes_at) VALUES(?,?,?,?,?)").run(user.id, def.building, key, quantity, new Date(Date.now() + totalSeconds * 1000).toISOString());
   redirect(`/game?view=${returnView}`);
 }
 
