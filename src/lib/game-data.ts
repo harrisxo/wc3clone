@@ -1,14 +1,14 @@
-﻿import type { Race } from "@/lib/auth";
+import type { Race } from "@/lib/auth";
 
 export type BuildingDefinition = { key: string; name: string; icon: string; gold: number; wood: number; seconds: number; kind: "main" | "military" | "food" | "upgrade" | "special" };
-export type UnitDefinition = { key: string; name: string; icon: string; building: string; gold: number; wood: number; seconds: number; supply: number; worker?: boolean };
+export type UnitDefinition = { key: string; name: string; icon: string; building: string; gold: number; wood: number; seconds: number; supply: number; worker?: boolean; role: "worker" | "melee" | "ranged" | "air" | "siege" | "hero"; unique?: boolean };
 
 // TESTING: all gold/wood costs below are temporarily set to 1.
 const commonCosts = {
   barracks: { gold: 1, wood: 1, seconds: 180, kind: "military" as const },
   food: { gold: 1, wood: 1, seconds: 120, kind: "food" as const },
   forge: { gold: 1, wood: 1, seconds: 240, kind: "upgrade" as const },
-  magic: { gold: 1, wood: 1, seconds: 300, kind: "military" as const },
+  magic: { gold: 1, wood: 1, seconds: 300, kind: "special" as const },
   siege: { gold: 1, wood: 1, seconds: 360, kind: "military" as const },
   air: { gold: 1, wood: 1, seconds: 420, kind: "military" as const },
   defense: { gold: 1, wood: 1, seconds: 300, kind: "special" as const },
@@ -16,23 +16,36 @@ const commonCosts = {
 const b = (key: string, name: string, icon: string, c: keyof typeof commonCosts): BuildingDefinition => ({ key, name, icon, ...commonCosts[c] });
 
 export const buildingsByRace: Record<Race, BuildingDefinition[]> = {
-  human: [{ key: "main", name: "Königssitz", icon: "♜", gold: 1, wood: 1, seconds: 0, kind: "main" }, b("barracks", "Kaserne", "⚔", "barracks"), b("food", "Hof", "⌂", "food"), b("forge", "Königsschmiede", "⚒", "forge"), b("magic", "Arkaner Turm", "✦", "magic"), b("siege", "Werkhof", "⚙", "siege"), b("air", "Greifenwarte", "◆", "air"), b("defense", "Grenzbollwerk", "▣", "defense")],
-  orc: [{ key: "main", name: "Kriegshalle", icon: "♜", gold: 1, wood: 1, seconds: 0, kind: "main" }, b("barracks", "Kampfgrube", "⚔", "barracks"), b("food", "Vorratshaus", "⌂", "food"), b("forge", "Eisenhütte", "⚒", "forge"), b("magic", "Schamanenzelt", "✦", "magic"), b("siege", "Belagerungswerk", "⚙", "siege"), b("air", "Wyvernhorst", "◆", "air"), b("defense", "Wachtotem", "▣", "defense")],
-  undead: [{ key: "main", name: "Nekropole", icon: "♜", gold: 1, wood: 1, seconds: 0, kind: "main" }, b("barracks", "Knochengruft", "⚔", "barracks"), b("food", "Seelenbrunnen", "⌂", "food"), b("forge", "Knochenesse", "⚒", "forge"), b("magic", "Schattenzirkel", "✦", "magic"), b("siege", "Seuchenwerk", "⚙", "siege"), b("air", "Frosthorst", "◆", "air"), b("defense", "Geisterwall", "▣", "defense")],
-  nightelf: [{ key: "main", name: "Weltenbaum", icon: "♜", gold: 1, wood: 1, seconds: 0, kind: "main" }, b("barracks", "Kriegerhain", "⚔", "barracks"), b("food", "Mondbrunnen", "⌂", "food"), b("forge", "Sternenschmiede", "⚒", "forge"), b("magic", "Ältestenhain", "✦", "magic"), b("siege", "Wurzelwerk", "⚙", "siege"), b("air", "Chimärennest", "◆", "air"), b("defense", "Wächterbaum", "▣", "defense")],
+  human: [{ key: "main", name: "Königssitz", icon: "♜", gold: 1, wood: 1, seconds: 0, kind: "main" }, b("barracks", "Kaserne", "⚔", "barracks"), b("food", "Hof", "⌂", "food"), b("forge", "Königsschmiede", "⚒", "forge"), b("magic", "Heldenturm", "✦", "magic"), b("siege", "Werkhof", "⚙", "siege"), b("air", "Greifenwarte", "◆", "air"), b("defense", "Grenzbollwerk", "▣", "defense")],
+  orc: [{ key: "main", name: "Kriegshalle", icon: "♜", gold: 1, wood: 1, seconds: 0, kind: "main" }, b("barracks", "Kampfgrube", "⚔", "barracks"), b("food", "Vorratshaus", "⌂", "food"), b("forge", "Eisenhütte", "⚒", "forge"), b("magic", "Heldenturm", "✦", "magic"), b("siege", "Belagerungswerk", "⚙", "siege"), b("air", "Wyvernhorst", "◆", "air"), b("defense", "Wachtotem", "▣", "defense")],
+  undead: [{ key: "main", name: "Nekropole", icon: "♜", gold: 1, wood: 1, seconds: 0, kind: "main" }, b("barracks", "Knochengruft", "⚔", "barracks"), b("food", "Seelenbrunnen", "⌂", "food"), b("forge", "Knochenesse", "⚒", "forge"), b("magic", "Heldenturm", "✦", "magic"), b("siege", "Seuchenwerk", "⚙", "siege"), b("air", "Frosthorst", "◆", "air"), b("defense", "Geisterwall", "▣", "defense")],
+  nightelf: [{ key: "main", name: "Weltenbaum", icon: "♜", gold: 1, wood: 1, seconds: 0, kind: "main" }, b("barracks", "Kriegerhain", "⚔", "barracks"), b("food", "Mondbrunnen", "⌂", "food"), b("forge", "Sternenschmiede", "⚒", "forge"), b("magic", "Heldenturm", "✦", "magic"), b("siege", "Wurzelwerk", "⚙", "siege"), b("air", "Chimärennest", "◆", "air"), b("defense", "Wächterbaum", "▣", "defense")],
 };
 
-const units = (worker: string, infantry: string, ranged: string, caster: string, siege: string, air: string): UnitDefinition[] => [
-  { key: "worker", name: worker, icon: "♟", building: "main", gold: 1, wood: 1, seconds: 90, supply: 1, worker: true },
-  { key: "infantry", name: infantry, icon: "⚔", building: "barracks", gold: 1, wood: 1, seconds: 120, supply: 2 },
-  { key: "ranged", name: ranged, icon: "➶", building: "barracks", gold: 1, wood: 1, seconds: 150, supply: 2 },
-  { key: "caster", name: caster, icon: "✦", building: "magic", gold: 1, wood: 1, seconds: 210, supply: 3 },
-  { key: "siege", name: siege, icon: "⚙", building: "siege", gold: 1, wood: 1, seconds: 300, supply: 4 },
-  { key: "air", name: air, icon: "◆", building: "air", gold: 1, wood: 1, seconds: 360, supply: 5 },
+const heroUnit = (key: string, name: string): UnitDefinition => ({ key, name, icon: "✪", building: "magic", gold: 1, wood: 1, seconds: 240, supply: 1, role: "hero", unique: true });
+
+const units = (
+  worker: string,
+  melee: string,
+  ranged: string,
+  antiTower: string,
+  air: string,
+  heroes: [string, string, string, string],
+): UnitDefinition[] => [
+  { key: "worker", name: worker, icon: "♟", building: "main", gold: 1, wood: 1, seconds: 90, supply: 1, worker: true, role: "worker" },
+  { key: "melee", name: melee, icon: "⚔", building: "barracks", gold: 1, wood: 1, seconds: 120, supply: 2, role: "melee" },
+  { key: "ranged", name: ranged, icon: "➶", building: "barracks", gold: 1, wood: 1, seconds: 150, supply: 2, role: "ranged" },
+  { key: "siege", name: antiTower, icon: "⚙", building: "siege", gold: 1, wood: 1, seconds: 300, supply: 4, role: "siege" },
+  { key: "air", name: air, icon: "◆", building: "air", gold: 1, wood: 1, seconds: 360, supply: 5, role: "air" },
+  heroUnit("hero_1", heroes[0]),
+  heroUnit("hero_2", heroes[1]),
+  heroUnit("hero_3", heroes[2]),
+  heroUnit("hero_4", heroes[3]),
 ];
+
 export const unitsByRace: Record<Race, UnitDefinition[]> = {
-  human: units("Siedler", "Schildwache", "Langbogenschütze", "Runenmagier", "Feldballiste", "Himmelsgreif"),
-  orc: units("Peon", "Klingenkrieger", "Speerjäger", "Sturmrufer", "Rammenwagen", "Windreiter"),
-  undead: units("Akolyth", "Knochenwächter", "Grabesschütze", "Seelenweber", "Fleischkoloss", "Frostschwinge"),
-  nightelf: units("Irrlicht", "Hainwächter", "Mondschützin", "Sternenseher", "Uralter Werfer", "Nachtchimäre"),
+  human: units("Bauer", "Schwertkämpfer", "Bogenschütze", "Belagerungsramme", "Himmelsgreif", ["Paladin", "Großmagier", "Blutmagier", "Todesritter"]),
+  orc: units("Peon", "Klingenkrieger", "Speerjäger", "Kriegsbock", "Windreiter", ["Klingenmeister", "Seher", "Taurenhäuptling", "Schattenjäger"]),
+  undead: units("Akolyth", "Knochenwächter", "Grabesschütze", "Seuchenkatapult", "Frostschwinge", ["Todesritter", "Lich", "Todesfürst", "Gruftlord"]),
+  nightelf: units("Irrlicht", "Hainwächter", "Mondschütze", "Urwurfer", "Nachtchimäre", ["Dämonenjäger", "Hüter des Hains", "Mondpriesterin", "Wächterin"]),
 };

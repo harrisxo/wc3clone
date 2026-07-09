@@ -33,21 +33,21 @@ test("processGameJobs adds trained workers to total_workers instead of unit_stac
 
 test("processGameJobs adds trained combat units to unit_stacks", () => {
   const userId = createTestUser({ race: "human" });
-  database.prepare("INSERT INTO unit_jobs (user_id, building_key, unit_key, quantity, finishes_at) VALUES (?, 'barracks', 'infantry', 3, ?)").run(userId, past());
+  database.prepare("INSERT INTO unit_jobs (user_id, building_key, unit_key, quantity, finishes_at) VALUES (?, 'barracks', 'melee', 3, ?)").run(userId, past());
 
   processGameJobs(userId, "human");
 
-  const stack = database.prepare("SELECT quantity FROM unit_stacks WHERE user_id = ? AND unit_key = 'infantry'").get(userId) as { quantity: number };
+  const stack = database.prepare("SELECT quantity FROM unit_stacks WHERE user_id = ? AND unit_key = 'melee'").get(userId) as { quantity: number };
   assert.equal(stack.quantity, 3);
 });
 
 test("getGameState reserves food supply for in-flight training jobs, not just finished units", () => {
   const userId = createTestUser({ race: "human", totalWorkers: 5, foodCapacity: 10 });
-  // infantry (supply 2) and caster (supply 3) still training, not yet due
-  database.prepare("INSERT INTO unit_jobs (user_id, building_key, unit_key, finishes_at) VALUES (?, 'barracks', 'infantry', ?)").run(userId, future());
-  database.prepare("INSERT INTO unit_jobs (user_id, building_key, unit_key, finishes_at) VALUES (?, 'magic', 'caster', ?)").run(userId, future());
+  // siege (supply 4) and hero_1 (supply 1) still training, not yet due
+  database.prepare("INSERT INTO unit_jobs (user_id, building_key, unit_key, finishes_at) VALUES (?, 'siege', 'siege', ?)").run(userId, future());
+  database.prepare("INSERT INTO unit_jobs (user_id, building_key, unit_key, finishes_at) VALUES (?, 'magic', 'hero_1', ?)").run(userId, future());
 
   const state = getGameState(userId, "human");
 
-  assert.equal(state.supplyUsed, 10, "5 workers + 2 (pending infantry) + 3 (pending caster) = 10, exactly at the food cap");
+  assert.equal(state.supplyUsed, 10, "5 workers + 4 (pending siege) + 1 (pending hero) = 10, exactly at the food cap");
 });

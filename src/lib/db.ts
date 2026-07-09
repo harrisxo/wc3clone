@@ -152,6 +152,24 @@ const migrations: { version: number; run: () => void }[] = [
       `);
     },
   },
+  {
+    version: 4,
+    run: () => {
+      database.exec(`
+        CREATE TABLE hero_units (
+          user_id INTEGER NOT NULL,
+          hero_key TEXT NOT NULL,
+          level INTEGER NOT NULL DEFAULT 1 CHECK (level >= 1),
+          alive INTEGER NOT NULL DEFAULT 1 CHECK (alive IN (0, 1)),
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (user_id, hero_key),
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX hero_units_user_idx ON hero_units(user_id, alive);
+      `);
+    },
+  },
 ];
 
 const { user_version: currentVersion } = database.prepare("PRAGMA user_version").get() as { user_version: number };

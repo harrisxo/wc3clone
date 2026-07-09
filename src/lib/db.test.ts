@@ -4,7 +4,7 @@ import { database } from "@/lib/db";
 
 test("migrations have run to the latest version", () => {
   const { user_version: version } = database.prepare("PRAGMA user_version").get() as { user_version: number };
-  assert.equal(version, 3);
+  assert.equal(version, 4);
 });
 
 test("users.gold is REAL, matching wood, since accrual writes fractional amounts", () => {

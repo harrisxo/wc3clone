@@ -1,5 +1,6 @@
 import { startBuild } from "@/lib/actions/game";
 import type { getGameState } from "@/lib/game-system";
+import { Countdown } from "@/components/game/countdown";
 
 export function BuildView({ state }: { state: ReturnType<typeof getGameState> }) {
   const now=new Date(state.economy.updatedAt).getTime();
@@ -8,7 +9,7 @@ export function BuildView({ state }: { state: ReturnType<typeof getGameState> })
     <div className="building-grid">{buildable.map(def=>{
       const jobs=state.buildJobs.filter(j=>j.building_key===def.key); const building=jobs.find(j=>j.job_type==="build");
       return <article className="building-card" key={def.key}><div className="building-icon">{def.icon}</div><div className="building-info"><h3>{def.name}</h3><div className="cost-line"><span>● {def.gold}</span><span>♣ {def.wood}</span><span>◷ {Math.ceil(def.seconds/60)}m</span></div>
-        {building&&<small>Im Bau · noch {Math.max(1,Math.ceil((new Date(building.finishes_at).getTime()-now)/60000))}m</small>}
+        {building&&<small>Im Bau · noch <Countdown finishesAt={building.finishes_at} initialRemainingSeconds={Math.max(0,Math.ceil((new Date(building.finishes_at).getTime()-now)/1000))} /></small>}
       </div><div className="building-actions">
         {!building&&<form action={startBuild}><input type="hidden" name="building" value={def.key}/><button>Bauen</button></form>}
       </div></article>})}</div>

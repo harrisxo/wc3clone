@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { database } from "@/lib/db";
@@ -8,6 +8,16 @@ import { buildingUpgradeCost, foodBuildingCost, queueUpgradeCost } from "@/lib/c
 function safeView(value: FormDataEntryValue | null, fallback: string) {
   const s = String(value ?? "");
   return /^[a-z]+$/.test(s) ? s : fallback;
+}
+
+function isHeroUnit(def: { role?: string; unique?: boolean } | undefined) {
+  return Boolean(def && (def.role === "hero" || def.unique));
+}
+
+function heroReviveCost(level: number) {
+  const base = 1;
+  const step = 1;
+  return { gold: base + level * step, wood: base + level * step, seconds: 180 + level * 60 };
 }
 
 export async function startBuild(formData: FormData) {
@@ -53,6 +63,19 @@ export async function trainUnit(formData: FormData) {
   const def = state.unitDefs.find((u) => u.key === key);
   const returnView = safeView(formData.get("returnView"), def?.building ?? "main");
   if (!def) redirect(`/game?view=${returnView}&notice=invalid`);
+
+  if (isHeroUnit(def)) {
+    const hero = database.prepare("SELECT level,alive FROM hero_units WHERE user_id=? AND hero_key=?").get(user.id, key) as { level: number; alive: number } | undefined;
+    if (hero?.alive === 1) redirect(`/game?view=${returnView}&notice=built`);
+    const cost = hero ? heroReviveCost(hero.level) : { gold: def.gold, wood: def.wood, seconds: def.seconds };
+    if (state.economy.gold < cost.gold || state.economy.wood < cost.wood) redirect(`/game?view=${returnView}&notice=resources`);
+    const deduction = database.prepare("UPDATE users SET gold=gold-?,wood=wood-? WHERE id=? AND gold>=? AND wood>=?").run(cost.gold, cost.wood, user.id, cost.gold, cost.wood);
+    if (deduction.changes !== 1) redirect(`/game?view=${returnView}&notice=resources`);
+    const heroLevel = hero?.level ?? 1;
+    database.prepare("INSERT INTO hero_units(user_id,hero_key,level,alive,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(user_id,hero_key) DO UPDATE SET alive=1, updated_at=excluded.updated_at").run(user.id, key, heroLevel, 1, new Date().toISOString());
+    redirect(`/game?view=${returnView}`);
+  }
+
   const building = state.buildings.find((b) => b.building_key === def.building);
   if (!building) redirect(`/game?view=${returnView}&notice=building`);
   const active = state.unitJobs.filter((j) => j.building_key === def.building).length;
@@ -62,5 +85,27 @@ export async function trainUnit(formData: FormData) {
   const deduction = database.prepare("UPDATE users SET gold=gold-?,wood=wood-? WHERE id=? AND gold>=? AND wood>=?").run(def.gold, def.wood, user.id, def.gold, def.wood);
   if (deduction.changes !== 1) redirect(`/game?view=${returnView}&notice=resources`);
   database.prepare("INSERT INTO unit_jobs(user_id,building_key,unit_key,finishes_at) VALUES(?,?,?,?)").run(user.id, def.building, key, new Date(Date.now() + def.seconds * 1000).toISOString());
+  redirect(`/game?view=${returnView}`);
+}
+
+export async function cancelJob(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user?.race) redirect("/");
+  const jobId = Number(formData.get("jobId"));
+  const jobType = String(formData.get("jobType"));
+  const returnView = safeView(formData.get("returnView"), "bauen");
+
+  if (Number.isNaN(jobId) || (jobType !== "build" && jobType !== "unit")) {
+    redirect(`/game?view=${returnView}&notice=invalid`);
+  }
+
+  getGameState(user.id, user.race);
+
+  if (jobType === "build") {
+    database.prepare("DELETE FROM build_jobs WHERE id = ? AND user_id = ?").run(jobId, user.id);
+  } else {
+    database.prepare("DELETE FROM unit_jobs WHERE id = ? AND user_id = ?").run(jobId, user.id);
+  }
+
   redirect(`/game?view=${returnView}`);
 }
