@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { database } from "@/lib/db";
@@ -114,3 +114,58 @@ export async function cancelJob(formData: FormData) {
 
   redirect(`/game?view=${returnView}`);
 }
+function parseCoordinate(value: FormDataEntryValue | null) {
+  const match = /^(\d+)-(\d+)$/.exec(String(value ?? ""));
+  if (!match) return null;
+  return { y: Number(match[1]) - 1, x: Number(match[2]) - 1 };
+}
+
+export async function executeArmyCommand(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user?.race) redirect("/");
+  const source = parseCoordinate(formData.get("source"));
+  const target = parseCoordinate(formData.get("target"));
+  if (!source || !target || (source.x === target.x && source.y === target.y)) redirect("/game?view=karte&notice=invalid");
+  const sourceTile = database.prepare("SELECT owner_user_id,conquered_by_user_id FROM world_tiles WHERE x=? AND y=?").get(source.x, source.y) as { owner_user_id: number | null; conquered_by_user_id: number | null } | undefined;
+  const targetTile = database.prepare("SELECT owner_user_id,conquered_by_user_id,is_main_village,monster_count,gold_reward FROM world_tiles WHERE x=? AND y=?").get(target.x, target.y) as { owner_user_id: number | null; conquered_by_user_id: number | null; is_main_village: number; monster_count: number; gold_reward: number } | undefined;
+  if (!sourceTile || !targetTile || (sourceTile.owner_user_id !== user.id && sourceTile.conquered_by_user_id !== user.id)) redirect("/game?view=karte&notice=invalid");
+  if (targetTile.is_main_village === 1 && targetTile.owner_user_id !== user.id) redirect(`/game?view=karte&x=${Math.max(0, target.x - 4)}&field=${target.y + 1}-${target.x + 1}&notice=protected`);
+
+  const definitions = getGameState(user.id, user.race).unitDefs.filter((unit) => !unit.worker && unit.role !== "hero");
+  const selected = definitions.map((definition) => {
+    const requested = Math.max(0, Math.floor(Number(formData.get(`unit_${definition.key}`)) || 0));
+    const stack = database.prepare("SELECT quantity FROM unit_stacks WHERE user_id=? AND unit_key=? AND x=? AND y=?").get(user.id, definition.key, source.x, source.y) as { quantity: number } | undefined;
+    return { definition, quantity: Math.min(requested, stack?.quantity ?? 0) };
+  }).filter((entry) => entry.quantity > 0);
+  if (selected.length === 0) redirect(`/game?view=karte&x=${Math.max(0, source.x - 4)}&from=${source.y + 1}-${source.x + 1}&notice=units`);
+
+  const friendly = targetTile.owner_user_id === user.id || targetTile.conquered_by_user_id === user.id;
+  const attackPower = selected.reduce((sum, entry) => sum + entry.quantity * Math.max(1, entry.definition.supply), 0);
+  const stationedEnemies = database.prepare("SELECT COALESCE(SUM(quantity),0) quantity FROM unit_stacks WHERE x=? AND y=? AND user_id<>?").get(target.x, target.y, user.id) as { quantity: number };
+  const defensePower = targetTile.monster_count + stationedEnemies.quantity * 2;
+  const victory = friendly || attackPower >= defensePower;
+
+  database.exec("BEGIN IMMEDIATE");
+  try {
+    for (const entry of selected) {
+      const deduction = database.prepare("UPDATE unit_stacks SET quantity=quantity-? WHERE user_id=? AND unit_key=? AND x=? AND y=? AND quantity>=?").run(entry.quantity, user.id, entry.definition.key, source.x, source.y, entry.quantity);
+      if (deduction.changes !== 1) throw new Error("Der Einheitenbestand hat sich ge\u00e4ndert.");
+    }
+    database.prepare("DELETE FROM unit_stacks WHERE quantity<=0").run();
+    if (victory) {
+      if (!friendly) {
+        database.prepare("DELETE FROM unit_stacks WHERE x=? AND y=? AND user_id<>?").run(target.x, target.y, user.id);
+        database.prepare("UPDATE world_tiles SET conquered_by_user_id=?,monster_count=0,gold_reward=0 WHERE x=? AND y=?").run(user.id, target.x, target.y);
+        if (targetTile.gold_reward > 0) database.prepare("UPDATE users SET gold=gold+? WHERE id=?").run(targetTile.gold_reward, user.id);
+      }
+      for (const entry of selected) database.prepare("INSERT INTO unit_stacks(user_id,unit_key,x,y,quantity) VALUES(?,?,?,?,?) ON CONFLICT(user_id,unit_key,x,y) DO UPDATE SET quantity=quantity+excluded.quantity").run(user.id, entry.definition.key, target.x, target.y, entry.quantity);
+    }
+    database.exec("COMMIT");
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
+  }
+  const notice = friendly ? "moved" : victory ? "victory" : "defeat";
+  redirect(`/game?view=karte&x=${Math.max(0, target.x - 4)}&field=${target.y + 1}-${target.x + 1}&notice=${notice}`);
+}
+

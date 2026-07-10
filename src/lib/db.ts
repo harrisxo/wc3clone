@@ -1,4 +1,4 @@
-import "server-only";
+﻿import "server-only";
 import { mkdirSync } from "node:fs";
 import { randomInt } from "node:crypto";
 import path from "node:path";
@@ -170,6 +170,24 @@ const migrations: { version: number; run: () => void }[] = [
       `);
     },
   },
+  {
+    version: 5,
+    run: () => {
+      database.exec(`
+        CREATE TABLE unit_stacks_new (
+          user_id INTEGER NOT NULL, unit_key TEXT NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, quantity INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (user_id, unit_key, x, y),
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          FOREIGN KEY (x, y) REFERENCES world_tiles(x, y) ON DELETE CASCADE
+        );
+        INSERT INTO unit_stacks_new(user_id,unit_key,x,y,quantity)
+          SELECT s.user_id,s.unit_key,w.x,w.y,s.quantity FROM unit_stacks s JOIN world_tiles w ON w.owner_user_id=s.user_id AND w.is_main_village=1;
+        DROP TABLE unit_stacks;
+        ALTER TABLE unit_stacks_new RENAME TO unit_stacks;
+        CREATE INDEX unit_stacks_location_idx ON unit_stacks(x,y,user_id);
+      `);
+    },
+  },
 ];
 
 const { user_version: currentVersion } = database.prepare("PRAGMA user_version").get() as { user_version: number };
@@ -201,3 +219,4 @@ if (!database.prepare("SELECT 1 FROM users WHERE is_admin = 1 LIMIT 1").get()) {
 }
 
 export { database };
+

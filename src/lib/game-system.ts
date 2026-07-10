@@ -1,11 +1,13 @@
-import "server-only";
+﻿import "server-only";
 import { database } from "@/lib/db";
 import { accrueResources, previewResources } from "@/lib/economy";
 import { buildingsByRace, unitsByRace } from "@/lib/game-data";
 import type { Race } from "@/lib/auth";
+import { ensureHomeTile } from "@/lib/world";
 
 export function processGameJobs(userId: number, race: Race) {
   const now = new Date().toISOString();
+  const home = ensureHomeTile(userId);
   const builds = database.prepare("SELECT id,building_key,job_type FROM build_jobs WHERE user_id=? AND finishes_at<=?").all(userId, now) as { id: number; building_key: string; job_type: string }[];
   for (const job of builds) {
     if (job.job_type === "build") database.prepare("INSERT OR IGNORE INTO player_buildings(user_id,building_key) VALUES(?,?)").run(userId, job.building_key);
@@ -19,7 +21,7 @@ export function processGameJobs(userId: number, race: Race) {
     const def = unitsByRace[race].find((u) => u.key === job.unit_key);
     if (def?.worker) database.prepare("UPDATE users SET total_workers=total_workers+? WHERE id=?").run(job.quantity, userId);
     else if (def?.role === "hero") database.prepare("INSERT INTO hero_units(user_id,hero_key,level,alive,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(user_id,hero_key) DO UPDATE SET alive=1, updated_at=excluded.updated_at").run(userId, job.unit_key, 1, 1, now);
-    else database.prepare("INSERT INTO unit_stacks(user_id,unit_key,quantity) VALUES(?,?,?) ON CONFLICT(user_id,unit_key) DO UPDATE SET quantity=quantity+excluded.quantity").run(userId, job.unit_key, job.quantity);
+    else database.prepare("INSERT INTO unit_stacks(user_id,unit_key,x,y,quantity) VALUES(?,?,?,?,?) ON CONFLICT(user_id,unit_key,x,y) DO UPDATE SET quantity=quantity+excluded.quantity").run(userId, job.unit_key, home.x, home.y, job.quantity);
     database.prepare("DELETE FROM unit_jobs WHERE id=?").run(job.id);
   }
   database.prepare("INSERT OR IGNORE INTO player_buildings(user_id,building_key) VALUES(?,'main')").run(userId);
@@ -31,10 +33,11 @@ export function getGameState(userId: number, race: Race, options?: { persist?: b
   const profile = database.prepare("SELECT food_capacity FROM users WHERE id=?").get(userId) as { food_capacity: number };
   const buildings = database.prepare("SELECT building_key,queue_slots,upgrade_level FROM player_buildings WHERE user_id=?").all(userId) as { building_key: string; queue_slots: number; upgrade_level: number }[];
   const buildJobs = database.prepare("SELECT id,building_key,job_type,finishes_at FROM build_jobs WHERE user_id=? ORDER BY finishes_at").all(userId) as { id: number; building_key: string; job_type: string; finishes_at: string }[];
-  const stacks = database.prepare("SELECT unit_key,quantity FROM unit_stacks WHERE user_id=? AND quantity>0").all(userId) as { unit_key: string; quantity: number }[];
+  const stacks = database.prepare("SELECT unit_key,x,y,quantity FROM unit_stacks WHERE user_id=? AND quantity>0").all(userId) as { unit_key: string; x: number; y: number; quantity: number }[];
   const unitJobs = database.prepare("SELECT id,building_key,unit_key,quantity,finishes_at FROM unit_jobs WHERE user_id=? ORDER BY finishes_at").all(userId) as { id: number; building_key: string; unit_key: string; quantity: number; finishes_at: string }[];
   const heroUnits = database.prepare("SELECT hero_key,level,alive,updated_at FROM hero_units WHERE user_id=?").all(userId) as { hero_key: string; level: number; alive: number; updated_at: string }[];
   const unitSupply = stacks.reduce((sum, s) => sum + (unitsByRace[race].find((u) => u.key === s.unit_key)?.supply ?? 0) * s.quantity, 0);
   const pendingSupply = unitJobs.reduce((sum, j) => sum + (unitsByRace[race].find((u) => u.key === j.unit_key)?.supply ?? 0) * j.quantity, 0);
   return { economy, buildings, buildJobs, stacks, unitJobs, heroUnits, foodCapacity: profile.food_capacity, supplyUsed: economy.totalWorkers + unitSupply + pendingSupply, busyWorkers: buildJobs.filter((j) => j.job_type === "build").length, buildingDefs: buildingsByRace[race], unitDefs: unitsByRace[race] };
 }
+

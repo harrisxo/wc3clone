@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { redirect } from "next/navigation";
 import { logout } from "@/lib/actions/auth";
 import { getCurrentUser } from "@/lib/auth";
@@ -39,10 +39,14 @@ export default async function GamePage({ searchParams }: PageProps<"/game">) {
   const world = !buildingViewKey && viewKey === "karte" ? getWorldMap(user.id, requestedStart) : null;
   const home = world?.home ?? ensureHomeTile(user.id);
   const selectedField = typeof query.field === "string" ? query.field : null;
+  const sourceField = typeof query.from === "string" ? query.from : null;
+  const targetField = typeof query.target === "string" ? query.target : null;
   const selectedTile = world?.tiles.find((tile) => `${tile.y + 1}-${tile.x + 1}` === selectedField) ?? null;
+  const sourceTile = world?.tiles.find((tile) => `${tile.y + 1}-${tile.x + 1}` === sourceField) ?? null;
+  const targetTile = world?.tiles.find((tile) => `${tile.y + 1}-${tile.x + 1}` === targetField) ?? null;
   const ranking = viewKey === "ranking" ? getRanking() : [];
   const selectedPlayer = typeof query.player === "string" && /^\d+$/.test(query.player) ? Number(query.player) : null;
-  const notices: Record<string, string> = { resources: "Nicht genügend Gold oder Holz.", worker: "Du brauchst einen freien Arbeiter.", queue: "Diese Warteschlange ist bereits belegt.", food: "Dein Nahrungslimit ist erreicht.", building: "Das benötigte Gebäude wurde noch nicht errichtet.", built: "Dieses Gebäude ist bereits vorhanden.", invalid: "Diese Aktion ist nicht verfügbar." };
+  const notices: Record<string, string> = { resources: "Nicht gen\u00fcgend Gold oder Holz.", worker: "Du brauchst einen freien Arbeiter.", queue: "Diese Warteschlange ist bereits belegt.", food: "Dein Nahrungslimit ist erreicht.", building: "Das ben\u00f6tigte Geb\u00e4ude wurde noch nicht errichtet.", built: "Dieses Geb\u00e4ude ist bereits vorhanden.", invalid: "Diese Aktion ist nicht verf\u00fcgbar.", units: "Auf dem Startfeld wurden keine Einheiten ausgew\u00e4hlt.", moved: "Die Einheiten wurden verlegt.", victory: "Angriff gewonnen. Das Feld wurde eingenommen.", defeat: "Angriff verloren. Die entsandten Einheiten sind gefallen.", protected: "Fremde Hauptd\u00f6rfer sind derzeit gesch\u00fctzt." };
   const notice = typeof query.notice === "string" ? notices[query.notice] : null;
   const heading = buildingViewKey ? builtDefs.find((def) => def.key === buildingViewKey)!.name : views[viewKey].heading;
 
@@ -53,8 +57,8 @@ export default async function GamePage({ searchParams }: PageProps<"/game">) {
         <div className="player-sigil">{race.sigil}</div>
         <div><strong><Link href={`/game?view=ranking&player=${user.id}`}>{user.displayName}</Link></strong><span>{race.name}</span></div>
       </div>
-      <nav className="game-menu" aria-label="Spielmenü">
-        <form action={logout}><button className="menu-logout" type="submit"><span>↪</span> Logout</button></form>
+      <nav className="game-menu" aria-label={"Spielmen\u00fc"}>
+        <form action={logout}><button className="menu-logout" type="submit"><span aria-hidden="true">&#8618;</span> Logout</button></form>
         {(Object.entries(views) as [View, (typeof views)[View]][]).map(([key, item]) =>
           <Link className={!buildingViewKey && key === viewKey ? "active" : ""} href={`/game?view=${key}`} key={key}><span>{item.icon}</span>{item.label}</Link>
         )}
@@ -62,11 +66,17 @@ export default async function GamePage({ searchParams }: PageProps<"/game">) {
           <Link className={buildingViewKey === def.key ? "active" : ""} href={`/game?view=${def.key}`} key={def.key}><span>{def.icon}</span>{def.name}</Link>
         )}
       </nav>
-      <div className="faction-label"><span>{race.title}</span><small>Dein Volk ist dauerhaft gewählt</small></div>
+      <div className="faction-label"><span>{race.title}</span><small>{"Dein Volk ist dauerhaft gew\u00e4hlt"}</small></div>
     </aside>
     <section className="game-content">
       <header className="game-topbar"><div><span className="section-kicker">{race.name}</span><h1>{heading}</h1></div><ResourceHeader initial={{ ...economy, foodUsed: gameState.supplyUsed, foodCapacity: gameState.foodCapacity }} /></header>{notice && <div className="action-notice" role="status">{notice}</div>}
-      {buildingViewKey ? <BuildingDetailView state={gameState} home={home} buildingKey={buildingViewKey} /> : viewKey === "arbeiter" ? <WorkersView economy={economy} /> : viewKey === "bauen" ? <BuildView state={gameState} /> : viewKey === "einheiten" ? <UnitsView state={gameState} home={home} /> : viewKey === "ranking" ? <RankingView rows={ranking} selectedId={selectedPlayer} /> : <WorldMap tiles={world!.tiles} userId={user.id} home={world!.home} startX={world!.startX} totalWidth={world!.totalWidth} leftStart={world!.leftStart} rightStart={world!.rightStart} selectedTile={selectedTile} />}
+      {buildingViewKey ? <BuildingDetailView state={gameState} home={home} buildingKey={buildingViewKey} race={user.race} /> : viewKey === "arbeiter" ? <WorkersView economy={economy} /> : viewKey === "bauen" ? <BuildView state={gameState} /> : viewKey === "einheiten" ? <UnitsView state={gameState} home={home} race={user.race} /> : viewKey === "ranking" ? <RankingView rows={ranking} selectedId={selectedPlayer} /> : <WorldMap tiles={world!.tiles} userId={user.id} home={world!.home} startX={world!.startX} totalWidth={world!.totalWidth} leftStart={world!.leftStart} rightStart={world!.rightStart} selectedTile={selectedTile} sourceTile={sourceTile} targetTile={targetTile} stacks={gameState.stacks} unitDefs={gameState.unitDefs} />}
     </section>
   </main>;
 }
+
+
+
+
+
+
