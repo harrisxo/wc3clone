@@ -4,6 +4,7 @@ import type { Race } from "@/lib/auth";
 import type { getGameState } from "@/lib/game-system";
 import { buildingUpgradeCost, foodBuildingCost, queueUpgradeCost } from "@/lib/costs";
 import { Countdown } from "@/components/game/countdown";
+import { QuantityStepper } from "@/components/game/quantity-stepper";
 
 export function BuildingDetailView({ state, home, buildingKey, race }: { state: ReturnType<typeof getGameState>; home: { x: number; y: number }; buildingKey: string; race: Race }) {
   const now = new Date(state.economy.updatedAt).getTime();
@@ -41,7 +42,7 @@ export function BuildingDetailView({ state, home, buildingKey, race }: { state: 
             <span className="unit-icon">{unit.icon}</span>
             <span className="selected-unit-info"><h4>{unit.name}</h4><small>{unit.supply} Nahrung · {Math.ceil(unit.seconds / 60)}m</small><p>Gold {unit.gold} · Holz {unit.wood}</p></span>
           </button>
-          <label className="selected-unit-quantity"><span>Anzahl</span><input type="number" name="quantity" min={1} max={999} defaultValue={1} /></label>
+          <div className="selected-unit-quantity"><span>Anzahl</span><QuantityStepper name="quantity" min={1} max={999} /></div>
         </form>)}
       </div>
       {availableUnits.some((unit) => unit.role === "hero") && <section className="hero-unit-section">
