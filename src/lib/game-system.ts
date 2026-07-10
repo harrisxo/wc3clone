@@ -4,7 +4,19 @@ import { accrueResources, previewResources } from "@/lib/economy";
 import { buildingsByRace, unitsByRace } from "@/lib/game-data";
 import type { Race } from "@/lib/auth";
 import { ensureHomeTile } from "@/lib/world";
+import { createSystemMessage } from "@/lib/messages";
 
+
+function fieldLabel(x: number, y: number) {
+  return `${y + 1}-${x + 1}`;
+}
+
+function formatUnitsForReport(race: Race, units: { unit_key: string; quantity: number }[]) {
+  return units.map((unit) => {
+    const def = unitsByRace[race].find((entry) => entry.key === unit.unit_key);
+    return `${unit.quantity}x ${def?.name ?? unit.unit_key}`;
+  }).join(", ");
+}
 export function processGameJobs(userId: number, race: Race) {
   const now = new Date().toISOString();
   const home = ensureHomeTile(userId);
@@ -28,10 +40,13 @@ export function processGameJobs(userId: number, race: Race) {
   for (const march of marches) {
     const units = JSON.parse(march.units) as { unit_key: string; quantity: number }[];
     const target = database.prepare("SELECT owner_user_id,conquered_by_user_id,monster_count,gold_reward FROM world_tiles WHERE x=? AND y=?").get(march.target_x, march.target_y) as { owner_user_id: number | null; conquered_by_user_id: number | null; monster_count: number; gold_reward: number } | undefined;
+    const targetName = fieldLabel(march.target_x, march.target_y);
+    const unitSummary = formatUnitsForReport(race, units);
     database.exec("BEGIN IMMEDIATE");
     try {
       if (target) {
         const friendly = target.owner_user_id === userId || target.conquered_by_user_id === userId;
+        const defenderId = target.conquered_by_user_id ?? target.owner_user_id;
         const attackPower = units.reduce((sum, u) => sum + u.quantity * Math.max(1, unitsByRace[race].find((d) => d.key === u.unit_key)?.supply ?? 1), 0);
         const enemy = database.prepare("SELECT COALESCE(SUM(quantity),0) quantity FROM unit_stacks WHERE x=? AND y=? AND user_id<>?").get(march.target_x, march.target_y, userId) as { quantity: number };
         const victory = friendly || attackPower >= target.monster_count + enemy.quantity * 2;
@@ -40,9 +55,18 @@ export function processGameJobs(userId: number, race: Race) {
             database.prepare("DELETE FROM unit_stacks WHERE x=? AND y=? AND user_id<>?").run(march.target_x, march.target_y, userId);
             database.prepare("UPDATE world_tiles SET conquered_by_user_id=?,monster_count=0,gold_reward=0 WHERE x=? AND y=?").run(userId, march.target_x, march.target_y);
             if (target.gold_reward > 0) database.prepare("UPDATE users SET gold=gold+? WHERE id=?").run(target.gold_reward, userId);
+            createSystemMessage(userId, `Angriff auf ${targetName} gewonnen`, `Deine Truppen haben Feld ${targetName} eingenommen.\nEingesetzt: ${unitSummary}\nEigene Verluste: keine\nVerteidiger vernichtet: ${enemy.quantity}\nGold erbeutet: ${target.gold_reward}`);
+            if (defenderId && defenderId !== userId) createSystemMessage(defenderId, `Feld ${targetName} verloren`, `Ein Angriff auf Feld ${targetName} war erfolgreich.\nVerteidiger verloren: ${enemy.quantity}\nDas Feld wurde vom Angreifer eingenommen.`);
+          } else {
+            createSystemMessage(userId, `Truppen auf ${targetName} angekommen`, `Deine Truppen sind auf Feld ${targetName} angekommen.\nEinheiten: ${unitSummary}`);
           }
           for (const u of units) database.prepare("INSERT INTO unit_stacks(user_id,unit_key,x,y,quantity) VALUES(?,?,?,?,?) ON CONFLICT(user_id,unit_key,x,y) DO UPDATE SET quantity=quantity+excluded.quantity").run(userId, u.unit_key, march.target_x, march.target_y, u.quantity);
+        } else {
+          createSystemMessage(userId, `Angriff auf ${targetName} verloren`, `Dein Angriff auf Feld ${targetName} wurde abgewehrt.\nVerlorene Einheiten: ${unitSummary}\nVerteidiger am Ziel: ${enemy.quantity}\nGold erbeutet: 0`);
+          if (defenderId && defenderId !== userId) createSystemMessage(defenderId, `Angriff auf ${targetName} abgewehrt`, `Ein Angriff auf dein Feld ${targetName} wurde abgewehrt.\nAngreifer vernichtet: ${unitSummary}\nVerteidiger am Ziel: ${enemy.quantity}`);
         }
+      } else {
+        createSystemMessage(userId, `Marsch auf ${targetName} beendet`, `Das Ziel ${targetName} konnte nicht mehr gefunden werden.\nVerlorene Einheiten: ${unitSummary}`);
       }
       database.prepare("DELETE FROM army_marches WHERE id=?").run(march.id);
       database.exec("COMMIT");
@@ -69,4 +93,7 @@ export function getGameState(userId: number, race: Race, options?: { persist?: b
   const pendingSupply = unitJobs.reduce((sum, j) => sum + (unitsByRace[race].find((u) => u.key === j.unit_key)?.supply ?? 0) * j.quantity, 0);
   return { economy, buildings, buildJobs, stacks, unitJobs, heroUnits, marches, foodCapacity: profile.food_capacity, supplyUsed: economy.totalWorkers + unitSupply + pendingSupply, busyWorkers: buildJobs.filter((j) => j.job_type === "build").length, buildingDefs: buildingsByRace[race], unitDefs: unitsByRace[race] };
 }
+
+
+
 

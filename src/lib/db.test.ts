@@ -4,7 +4,7 @@ import { database } from "@/lib/db";
 
 test("migrations have run to the latest version", () => {
   const { user_version: version } = database.prepare("PRAGMA user_version").get() as { user_version: number };
-  assert.equal(version, 5);
+  assert.equal(version, 7);
 });
 
 test("users.gold is REAL, matching wood, since accrual writes fractional amounts", () => {
@@ -25,4 +25,5 @@ test("PRAGMA foreign_key_check reports no violations after migrating", () => {
   const violations = database.prepare("PRAGMA foreign_key_check").all();
   assert.deepEqual(violations, []);
 });
+
 

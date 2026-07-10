@@ -207,7 +207,25 @@ const migrations: { version: number; run: () => void }[] = [
       `);
     },
   },
-];
+  {
+    version: 7,
+    run: () => {
+      database.exec(`
+        CREATE TABLE messages (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          sender_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          recipient_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          kind TEXT NOT NULL DEFAULT 'player' CHECK (kind IN ('player', 'report')),
+          subject TEXT NOT NULL,
+          body TEXT NOT NULL,
+          read_at TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX messages_recipient_idx ON messages(recipient_user_id, created_at DESC);
+        CREATE INDEX messages_unread_idx ON messages(recipient_user_id, read_at);
+      `);
+    },
+  },];
 
 const { user_version: currentVersion } = database.prepare("PRAGMA user_version").get() as { user_version: number };
 const pendingMigrations = migrations.filter((m) => m.version > currentVersion);
@@ -238,4 +256,5 @@ if (!database.prepare("SELECT 1 FROM users WHERE is_admin = 1 LIMIT 1").get()) {
 }
 
 export { database };
+
 

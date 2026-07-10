@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 // Interactive world map: left-click sets start, right-/double-click sets target.
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import type { UnitDefinition } from "@/lib/game-data";
 import type { WorldTile } from "@/lib/world";
 import { fieldInfo } from "./shared";
-import { CastleIcon } from "./castle-icon";
 import { ArmyCommandForm, type CommandUnit } from "./army-command-bar";
 
 type ArmyStack = { unit_key: string; x: number; y: number; quantity: number };
@@ -61,10 +60,10 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
     <div className="map-main">
       <div className="map-summary">
         <div><span className="section-kicker">Gemeinsame Welt</span><h2>Die Grenzlande</h2></div>
-        <div className="map-coordinates"><span>Hauptdorf</span><strong>X {home.x + 1} · Y {home.y + 1}</strong></div>
+        <div className="map-coordinates"><strong>X {home.x + 1} · Y {home.y + 1}</strong></div>
       </div>
       <div className="map-pager">
-        {leftStart !== null ? <Link className="map-arrow" href={pagerHref(leftStart)} aria-label="Kartenausschnitt nach links"><span aria-hidden="true">‹</span></Link> : <span className="map-arrow disabled" aria-hidden="true">‹</span>}
+        {leftStart !== null ? <Link className="map-arrow" href={pagerHref(leftStart)} aria-label="Kartenausschnitt nach links"><span aria-hidden="true">{"\u2039"}</span></Link> : <span className="map-arrow disabled" aria-hidden="true">{"\u2039"}</span>}
         <div className="map-frame">
           <div className="map-axis map-axis-x" aria-hidden="true">{Array.from({ length: 10 }, (_, index) => <span key={index}>{startX + index + 1}</span>)}</div>
           <div className="map-axis map-axis-y" aria-hidden="true">{Array.from({ length: 10 }, (_, index) => <span key={index}>{index + 1}</span>)}</div>
@@ -75,6 +74,8 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
               const isOwnTerritory = tile.conquered_by_user_id === userId;
               const isEnemyTerritory = tile.conquered_by_user_id !== null && tile.conquered_by_user_id !== userId;
               const territoryOwner = isOwnTerritory || isEnemyTerritory ? tile.owner_name : null;
+              const visibleOwner = isVillage ? tile.owner_name : territoryOwner;
+              const isOwnField = isOwnHome || isOwnTerritory;
               const fieldName = nameOf(tile);
               const isSource = sourceTile?.x === tile.x && sourceTile?.y === tile.y;
               const isTarget = targetTile?.x === tile.x && targetTile?.y === tile.y;
@@ -83,28 +84,28 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
                 className={`world-tile field-${tile.field_type}${isOwnHome ? " home-tile" : isVillage ? " village-tile" : ""}${isOwnTerritory ? " own-territory" : isEnemyTerritory ? " enemy-territory" : ""}${isSource ? " command-source" : ""}${isTarget ? " command-target" : ""}`}
                 href={mode === "start" ? startHref(fieldName) : targetHref(fieldName)}
                 onContextMenu={(event) => fixTarget(event, fieldName)} onDoubleClick={(event) => fixTarget(event, fieldName)}
-                key={`${tile.x}-${tile.y}`} role="gridcell" aria-label={`${label} auf Feld ${fieldName}`} title={`${label} · Feld ${fieldName}`}>
+                key={`${tile.x}-${tile.y}`} role="gridcell" aria-label={`${label} auf Feld ${fieldName}`} title={`${label} ${"\u00b7"} Feld ${fieldName}`}>
                 <span className="tile-label">{fieldName}</span>
-                {territoryOwner && <span className="territory-owner">{territoryOwner}</span>}
-                {isVillage && <><span className="village-icon" aria-hidden="true"><CastleIcon /></span>{isOwnHome && <small>Hauptdorf</small>}</>}
+                {visibleOwner && <span className={`territory-owner${isOwnField ? " own-owner" : ""}`}>{visibleOwner}</span>}
+                
               </Link>;
             })}
           </div>
         </div>
-        {rightStart !== null ? <Link className="map-arrow" href={pagerHref(rightStart)} aria-label="Kartenausschnitt nach rechts"><span aria-hidden="true">›</span></Link> : <span className="map-arrow disabled" aria-hidden="true">›</span>}
+        {rightStart !== null ? <Link className="map-arrow" href={pagerHref(rightStart)} aria-label="Kartenausschnitt nach rechts"><span aria-hidden="true">{"\u203a"}</span></Link> : <span className="map-arrow disabled" aria-hidden="true">{"\u203a"}</span>}
       </div>
-      <div className="map-legend"><span><i className="legend-home" /> Dein Hauptdorf</span><span><i className="legend-village" /> Anderes Dorf</span><span><i /> Unbesetzt</span><strong>Spalten {startX + 1}–{startX + 10} von {totalWidth}</strong></div>
+      <div className="map-legend"><span><i className="legend-home" /> Dein Hauptdorf</span><span><i className="legend-village" /> Anderes Dorf</span><span><i /> Unbesetzt</span><strong>Spalten {startX + 1}{"\u2013"}{startX + 10} von {totalWidth}</strong></div>
     </div>
 
     <aside className="command-panel">
       <header><span className="section-kicker">Armeebefehl</span></header>
       <div className="cp-fields">
-        <div className="cp-field"><span className="section-kicker">Startpunkt</span><strong>{sourceName ?? "—"}</strong><small>{sourceTile ? `Feldtyp: ${feldtyp(sourceTile)}` : "Noch nicht gewählt"}</small></div>
-        <div className="cp-field"><span className="section-kicker">Ziel</span><strong className={targetEnemy ? "relation-enemy" : targetFriendly ? "relation-friendly" : ""}>{targetName ?? "—"}</strong><small>{targetTile ? `Feldtyp: ${feldtyp(targetTile)} · ${relation}` : "Noch nicht gewählt"}</small></div>
+        <div className="cp-field"><span className="section-kicker">Startpunkt</span><strong>{sourceName ?? "\u2014"}</strong><small>{sourceTile ? `Feldtyp: ${feldtyp(sourceTile)}` : "Noch nicht gew\u00e4hlt"}</small></div>
+        <div className="cp-field"><span className="section-kicker">Ziel</span><strong className={targetEnemy ? "relation-enemy" : targetFriendly ? "relation-friendly" : ""}>{targetName ?? "\u2014"}</strong><small>{targetTile ? `Feldtyp: ${feldtyp(targetTile)} ${"\u00b7"} ${relation}` : "Noch nicht gew\u00e4hlt"}</small></div>
       </div>
       <fieldset className="cp-mode">
         <legend className="section-kicker">Linksklick</legend>
-        <label><input type="radio" name="clickmode" checked={mode === "start"} onChange={() => setMode("start")} /><span>Startpunkt wählen</span></label>
+        <label><input type="radio" name="clickmode" checked={mode === "start"} onChange={() => setMode("start")} /><span>Startpunkt w{"\u00e4"}hlen</span></label>
         <label><input type="radio" name="clickmode" checked={mode === "target"} onChange={() => setMode("target")} /><span>Ziel fixieren <small>(oder Rechts-/Doppelklick)</small></span></label>
       </fieldset>
       <form className="cp-goto" onSubmit={submitGoTo}>
@@ -112,12 +113,17 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
         <input type="number" min={1} max={10} placeholder="Zeile" value={goTo.row} onChange={(event) => setGoTo((current) => ({ ...current, row: event.target.value }))} aria-label="Zeile" />
         <span aria-hidden="true">-</span>
         <input type="number" min={1} max={totalWidth} placeholder="Spalte" value={goTo.col} onChange={(event) => setGoTo((current) => ({ ...current, col: event.target.value }))} aria-label="Spalte" />
-        <button type="submit" aria-label="Springen">→</button>
+        <button type="submit" aria-label="Springen">{"\u2192"}</button>
       </form>
       {sourceTile
         ? <ArmyCommandForm source={sourceName ?? ""} target={targetName} friendly={targetFriendly} targetValid={targetValid} targetProtected={targetProtected} units={commandUnits} />
-        : <p className="army-command-hint">Linksklick auf ein eigenes Feld wählt den Startpunkt.</p>}
-      <Link className="cp-overview" href={`/game?view=ranking&player=${userId}`}>Persönliche Übersicht</Link>
+        : <p className="army-command-hint">Linksklick auf ein eigenes Feld w{"\u00e4"}hlt den Startpunkt.</p>}
+      <Link className="cp-overview" href={`/game?view=ranking&player=${userId}`}>Pers{"\u00f6"}nliche {"\u00dc"}bersicht</Link>
     </aside>
   </div>;
 }
+
+
+
+
+
