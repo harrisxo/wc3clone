@@ -74,16 +74,18 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
               const isVillage = tile.owner_user_id !== null && tile.is_main_village === 1;
               const isOwnTerritory = tile.conquered_by_user_id === userId;
               const isEnemyTerritory = tile.conquered_by_user_id !== null && tile.conquered_by_user_id !== userId;
+              const territoryOwner = isOwnTerritory || isEnemyTerritory ? tile.owner_name : null;
               const fieldName = nameOf(tile);
               const isSource = sourceTile?.x === tile.x && sourceTile?.y === tile.y;
               const isTarget = targetTile?.x === tile.x && targetTile?.y === tile.y;
-              const label = isOwnHome ? "Dein Hauptdorf" : isVillage ? "Fremdes Hauptdorf" : fieldInfo[tile.field_type].name;
+              const label = isOwnHome ? "Dein Hauptdorf" : isVillage ? "Fremdes Hauptdorf" : territoryOwner ? `${fieldInfo[tile.field_type].name} von ${territoryOwner}` : fieldInfo[tile.field_type].name;
               return <Link
                 className={`world-tile field-${tile.field_type}${isOwnHome ? " home-tile" : isVillage ? " village-tile" : ""}${isOwnTerritory ? " own-territory" : isEnemyTerritory ? " enemy-territory" : ""}${isSource ? " command-source" : ""}${isTarget ? " command-target" : ""}`}
                 href={mode === "start" ? startHref(fieldName) : targetHref(fieldName)}
                 onContextMenu={(event) => fixTarget(event, fieldName)} onDoubleClick={(event) => fixTarget(event, fieldName)}
                 key={`${tile.x}-${tile.y}`} role="gridcell" aria-label={`${label} auf Feld ${fieldName}`} title={`${label} · Feld ${fieldName}`}>
                 <span className="tile-label">{fieldName}</span>
+                {territoryOwner && <span className="territory-owner">{territoryOwner}</span>}
                 {isVillage && <><span className="village-icon" aria-hidden="true"><CastleIcon /></span>{isOwnHome && <small>Hauptdorf</small>}</>}
               </Link>;
             })}
