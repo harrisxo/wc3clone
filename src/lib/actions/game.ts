@@ -134,18 +134,22 @@ export async function executeArmyCommand(formData: FormData) {
   if (!sourceTile || !targetTile || (sourceTile.owner_user_id !== user.id && sourceTile.conquered_by_user_id !== user.id)) redirect("/game?view=karte&notice=invalid");
   if (targetTile.is_main_village === 1 && targetTile.owner_user_id !== user.id) redirect(`/game?view=karte&x=${Math.max(0, target.x - 4)}&command=${source.y + 1}-${source.x + 1}&target=${target.y + 1}-${target.x + 1}&field=${target.y + 1}-${target.x + 1}&notice=protected`);
 
-  const definitions = getGameState(user.id, user.race).unitDefs.filter((unit) => !unit.worker && unit.role !== "hero");
+  const definitions = getGameState(user.id, user.race).unitDefs.filter((unit) => !unit.worker);
   const selected = definitions.map((definition) => {
     const requested = Math.max(0, Math.floor(Number(formData.get(`unit_${definition.key}`)) || 0));
+    if (definition.role === "hero") {
+      const hero = database.prepare("SELECT alive FROM hero_units WHERE user_id=? AND hero_key=?").get(user.id, definition.key) as { alive: number } | undefined;
+      return { definition, quantity: hero?.alive === 1 && requested > 0 ? 1 : 0, hero: true };
+    }
     const stack = database.prepare("SELECT quantity FROM unit_stacks WHERE user_id=? AND unit_key=? AND x=? AND y=?").get(user.id, definition.key, source.x, source.y) as { quantity: number } | undefined;
-    return { definition, quantity: Math.min(requested, stack?.quantity ?? 0) };
+    return { definition, quantity: Math.min(requested, stack?.quantity ?? 0), hero: false };
   }).filter((entry) => entry.quantity > 0);
   if (selected.length === 0) redirect(`/game?view=karte&x=${Math.max(0, source.x - 4)}&command=${source.y + 1}-${source.x + 1}&target=${target.y + 1}-${target.x + 1}&field=${target.y + 1}-${target.x + 1}&notice=units`);
 
   const friendly = targetTile.owner_user_id === user.id || targetTile.conquered_by_user_id === user.id;
   const distance = Math.abs(source.x - target.x) + Math.abs(source.y - target.y);
   const arrivesAt = new Date(Date.now() + Math.max(15, distance * MARCH_SECONDS_PER_FIELD) * 1000).toISOString();
-  const payload = JSON.stringify(selected.map((entry) => ({ unit_key: entry.definition.key, quantity: entry.quantity })));
+  const payload = JSON.stringify(selected.map((entry) => ({ unit_key: entry.definition.key, quantity: entry.quantity, hero: entry.definition.role === "hero" })));
 
   database.exec("BEGIN IMMEDIATE");
   try {
@@ -162,4 +166,6 @@ export async function executeArmyCommand(formData: FormData) {
   }
   redirect("/game?view=angriffe&notice=marching");
 }
+
+
 

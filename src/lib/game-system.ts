@@ -38,7 +38,7 @@ export function processGameJobs(userId: number, race: Race) {
   }
   const marches = database.prepare("SELECT id,target_x,target_y,units FROM army_marches WHERE user_id=? AND arrives_at<=?").all(userId, now) as { id: number; target_x: number; target_y: number; units: string }[];
   for (const march of marches) {
-    const units = JSON.parse(march.units) as { unit_key: string; quantity: number }[];
+    const units = JSON.parse(march.units) as { unit_key: string; quantity: number; hero?: boolean }[];
     const target = database.prepare("SELECT owner_user_id,conquered_by_user_id,monster_count,gold_reward FROM world_tiles WHERE x=? AND y=?").get(march.target_x, march.target_y) as { owner_user_id: number | null; conquered_by_user_id: number | null; monster_count: number; gold_reward: number } | undefined;
     const targetName = fieldLabel(march.target_x, march.target_y);
     const unitSummary = formatUnitsForReport(race, units);
@@ -60,7 +60,10 @@ export function processGameJobs(userId: number, race: Race) {
           } else {
             createSystemMessage(userId, `Truppen auf ${targetName} angekommen`, `Deine Truppen sind auf Feld ${targetName} angekommen.\nEinheiten: ${unitSummary}`);
           }
-          for (const u of units) database.prepare("INSERT INTO unit_stacks(user_id,unit_key,x,y,quantity) VALUES(?,?,?,?,?) ON CONFLICT(user_id,unit_key,x,y) DO UPDATE SET quantity=quantity+excluded.quantity").run(userId, u.unit_key, march.target_x, march.target_y, u.quantity);
+          for (const u of units) {
+            if (u.hero) continue;
+            database.prepare("INSERT INTO unit_stacks(user_id,unit_key,x,y,quantity) VALUES(?,?,?,?,?) ON CONFLICT(user_id,unit_key,x,y) DO UPDATE SET quantity=quantity+excluded.quantity").run(userId, u.unit_key, march.target_x, march.target_y, u.quantity);
+          }
         } else {
           createSystemMessage(userId, `Angriff auf ${targetName} verloren`, `Dein Angriff auf Feld ${targetName} wurde abgewehrt.\nVerlorene Einheiten: ${unitSummary}\nVerteidiger am Ziel: ${enemy.quantity}\nGold erbeutet: 0`);
           if (defenderId && defenderId !== userId) createSystemMessage(defenderId, `Angriff auf ${targetName} abgewehrt`, `Ein Angriff auf dein Feld ${targetName} wurde abgewehrt.\nAngreifer vernichtet: ${unitSummary}\nVerteidiger am Ziel: ${enemy.quantity}`);
@@ -93,6 +96,7 @@ export function getGameState(userId: number, race: Race, options?: { persist?: b
   const pendingSupply = unitJobs.reduce((sum, j) => sum + (unitsByRace[race].find((u) => u.key === j.unit_key)?.supply ?? 0) * j.quantity, 0);
   return { economy, buildings, buildJobs, stacks, unitJobs, heroUnits, marches, foodCapacity: profile.food_capacity, supplyUsed: economy.totalWorkers + unitSupply + pendingSupply, busyWorkers: buildJobs.filter((j) => j.job_type === "build").length, buildingDefs: buildingsByRace[race], unitDefs: unitsByRace[race] };
 }
+
 
 
 

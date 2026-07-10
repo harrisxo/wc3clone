@@ -9,11 +9,13 @@ import { fieldInfo } from "./shared";
 import { ArmyCommandForm, type CommandUnit } from "./army-command-bar";
 
 type ArmyStack = { unit_key: string; x: number; y: number; quantity: number };
+type HeroUnit = { hero_key: string; level: number; alive: number; updated_at: string };
 
-export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, rightStart, sourceTile, targetTile, stacks, unitDefs }: {
+export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, rightStart, sourceTile, targetTile, stacks, unitDefs, heroUnits }: {
   tiles: WorldTile[]; userId: number; home: { x: number; y: number }; startX: number; totalWidth: number;
   leftStart: number | null; rightStart: number | null; sourceTile: WorldTile | null; targetTile: WorldTile | null;
   stacks: ArmyStack[]; unitDefs: UnitDefinition[];
+  heroUnits: HeroUnit[];
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<"start" | "target">("start");
@@ -29,6 +31,10 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
     const def = unitDefs.find((unit) => unit.key === stack.unit_key);
     return { key: stack.unit_key, name: def?.name ?? stack.unit_key, icon: def?.icon ?? "", supply: def?.supply ?? 1, available: stack.quantity };
   }) : [];
+  const commandHeroes: CommandUnit[] = sourceTile ? unitDefs.filter((unit) => unit.role === "hero").map((unit) => {
+    const hero = heroUnits.find((entry) => entry.hero_key === unit.key && entry.alive === 1);
+    return hero ? { key: unit.key, name: unit.name, icon: unit.icon, supply: unit.supply, available: 1 } : null;
+  }).filter((entry): entry is CommandUnit => Boolean(entry)) : [];
 
   const targetFriendly = Boolean(targetTile && (targetTile.owner_user_id === userId || targetTile.conquered_by_user_id === userId));
   const targetProtected = Boolean(targetTile && targetTile.is_main_village === 1 && targetTile.owner_user_id !== userId);
@@ -116,12 +122,14 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
         <button type="submit" aria-label="Springen">{"\u2192"}</button>
       </form>
       {sourceTile
-        ? <ArmyCommandForm source={sourceName ?? ""} target={targetName} friendly={targetFriendly} targetValid={targetValid} targetProtected={targetProtected} units={commandUnits} />
+        ? <ArmyCommandForm source={sourceName ?? ""} target={targetName} friendly={targetFriendly} targetValid={targetValid} targetProtected={targetProtected} units={commandUnits} heroes={commandHeroes} />
         : <p className="army-command-hint">Linksklick auf ein eigenes Feld w{"\u00e4"}hlt den Startpunkt.</p>}
       <Link className="cp-overview" href={`/game?view=ranking&player=${userId}`}>Pers{"\u00f6"}nliche {"\u00dc"}bersicht</Link>
     </aside>
   </div>;
 }
+
+
 
 
 
