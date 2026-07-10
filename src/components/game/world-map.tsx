@@ -18,7 +18,6 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
   heroUnits: HeroUnit[];
 }) {
   const router = useRouter();
-  const [mode, setMode] = useState<"start" | "target">("start");
   const [goTo, setGoTo] = useState({ row: "", col: "" });
 
   const nameOf = (tile: { x: number; y: number }) => `${tile.y + 1}-${tile.x + 1}`;
@@ -27,6 +26,7 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
   const feldtyp = (tile: WorldTile) => (tile.is_main_village ? "Hauptdorf" : fieldInfo[tile.field_type].name);
 
   const isMovable = (unitKey: string) => { const def = unitDefs.find((unit) => unit.key === unitKey); return Boolean(def && !def.worker && def.role !== "hero"); };
+  const hasOwnMovable = (x: number, y: number) => stacks.some((stack) => stack.x === x && stack.y === y && stack.quantity > 0 && isMovable(stack.unit_key)) || heroUnits.some((hero) => hero.alive === 1 && hero.x === x && hero.y === y);
   const commandUnits: CommandUnit[] = sourceTile ? stacks.filter((stack) => stack.x === sourceTile.x && stack.y === sourceTile.y && isMovable(stack.unit_key)).map((stack) => {
     const def = unitDefs.find((unit) => unit.key === stack.unit_key);
     return { key: stack.unit_key, name: def?.name ?? stack.unit_key, icon: def?.icon ?? "", supply: def?.supply ?? 1, available: stack.quantity };
@@ -56,8 +56,7 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
     const x = Math.min(Math.max(0, col - 5), Math.max(0, totalWidth - 10));
     const name = Number.isInteger(row) && row >= 1 && row <= 10 ? `${row}-${col}` : null;
     let href = `/game?view=karte&x=${x}`;
-    if (name && mode === "start") href += `&command=${name}${targetName ? `&target=${targetName}` : ""}`;
-    else if (name && mode === "target") href += `${sourceName ? `&command=${sourceName}` : ""}&target=${name}`;
+    if (name && hasOwnMovable(col - 1, row - 1)) href += `&command=${name}${targetName ? `&target=${targetName}` : ""}`;
     else href += `${sourceName ? `&command=${sourceName}` : ""}${targetName ? `&target=${targetName}` : ""}`;
     router.push(href);
   };
@@ -73,7 +72,7 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
         <div className="map-frame">
           <div className="map-axis map-axis-x" aria-hidden="true">{Array.from({ length: 10 }, (_, index) => <span key={index}>{startX + index + 1}</span>)}</div>
           <div className="map-axis map-axis-y" aria-hidden="true">{Array.from({ length: 10 }, (_, index) => <span key={index}>{index + 1}</span>)}</div>
-          <div className={`world-grid mode-${mode}`} role="grid" aria-label={`Kartenausschnitt von Spalte ${startX + 1} bis ${startX + 10}`}>
+          <div className={`world-grid${sourceTile ? " targeting" : ""}`} role="grid" aria-label={`Kartenausschnitt von Spalte ${startX + 1} bis ${startX + 10}`}>
             {tiles.map((tile) => {
               const isOwnHome = tile.owner_user_id === userId && tile.is_main_village === 1;
               const isVillage = tile.owner_user_id !== null && tile.is_main_village === 1;
@@ -86,14 +85,15 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
               const isSource = sourceTile?.x === tile.x && sourceTile?.y === tile.y;
               const isTarget = targetTile?.x === tile.x && targetTile?.y === tile.y;
               const label = isOwnHome ? "Dein Hauptdorf" : isVillage ? "Fremdes Hauptdorf" : territoryOwner ? `${fieldInfo[tile.field_type].name} von ${territoryOwner}` : fieldInfo[tile.field_type].name;
+              const href = hasOwnMovable(tile.x, tile.y) ? startHref(fieldName) : pagerHref(startX);
               return <Link
                 className={`world-tile field-${tile.field_type}${isOwnHome ? " home-tile" : isVillage ? " village-tile" : ""}${isOwnTerritory ? " own-territory" : isEnemyTerritory ? " enemy-territory" : ""}${isSource ? " command-source" : ""}${isTarget ? " command-target" : ""}`}
-                href={mode === "start" ? startHref(fieldName) : targetHref(fieldName)}
+                href={href}
                 onContextMenu={(event) => fixTarget(event, fieldName)} onDoubleClick={(event) => fixTarget(event, fieldName)}
                 key={`${tile.x}-${tile.y}`} role="gridcell" aria-label={`${label} auf Feld ${fieldName}`} title={`${label} ${"\u00b7"} Feld ${fieldName}`}>
                 <span className="tile-label">{fieldName}</span>
                 {visibleOwner && <span className={`territory-owner${isOwnField ? " own-owner" : ""}`}>{visibleOwner}</span>}
-                
+
               </Link>;
             })}
           </div>
@@ -109,11 +109,6 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
         <div className="cp-field"><span className="section-kicker">Startpunkt</span><strong>{sourceName ?? "\u2014"}</strong><small>{sourceTile ? `Feldtyp: ${feldtyp(sourceTile)}` : "Noch nicht gew\u00e4hlt"}</small></div>
         <div className="cp-field"><span className="section-kicker">Ziel</span><strong className={targetEnemy ? "relation-enemy" : targetFriendly ? "relation-friendly" : ""}>{targetName ?? "\u2014"}</strong><small>{targetTile ? `Feldtyp: ${feldtyp(targetTile)} ${"\u00b7"} ${relation}` : "Noch nicht gew\u00e4hlt"}</small></div>
       </div>
-      <fieldset className="cp-mode">
-        <legend className="section-kicker">Linksklick</legend>
-        <label><input type="radio" name="clickmode" checked={mode === "start"} onChange={() => setMode("start")} /><span>Startpunkt w{"\u00e4"}hlen</span></label>
-        <label><input type="radio" name="clickmode" checked={mode === "target"} onChange={() => setMode("target")} /><span>Ziel fixieren <small>(oder Rechts-/Doppelklick)</small></span></label>
-      </fieldset>
       <form className="cp-goto" onSubmit={submitGoTo}>
         <span className="section-kicker">Gehe zu</span>
         <input type="number" min={1} max={10} placeholder="Zeile" value={goTo.row} onChange={(event) => setGoTo((current) => ({ ...current, row: event.target.value }))} aria-label="Zeile" />
@@ -123,7 +118,7 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
       </form>
       {sourceTile
         ? <ArmyCommandForm source={sourceName ?? ""} target={targetName} friendly={targetFriendly} targetValid={targetValid} targetProtected={targetProtected} units={commandUnits} heroes={commandHeroes} />
-        : <p className="army-command-hint">Linksklick auf ein eigenes Feld w{"\u00e4"}hlt den Startpunkt.</p>}
+        : <p className="army-command-hint">Linksklick auf ein eigenes Feld mit Einheiten w{"\u00e4"}hlt den Startpunkt.</p>}
       <Link className="cp-overview" href={`/game?view=ranking&player=${userId}`}>Pers{"\u00f6"}nliche {"\u00dc"}bersicht</Link>
     </aside>
   </div>;
