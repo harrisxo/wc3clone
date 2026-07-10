@@ -129,7 +129,7 @@ export async function executeArmyCommand(formData: FormData) {
   const sourceTile = database.prepare("SELECT owner_user_id,conquered_by_user_id FROM world_tiles WHERE x=? AND y=?").get(source.x, source.y) as { owner_user_id: number | null; conquered_by_user_id: number | null } | undefined;
   const targetTile = database.prepare("SELECT owner_user_id,conquered_by_user_id,is_main_village,monster_count,gold_reward FROM world_tiles WHERE x=? AND y=?").get(target.x, target.y) as { owner_user_id: number | null; conquered_by_user_id: number | null; is_main_village: number; monster_count: number; gold_reward: number } | undefined;
   if (!sourceTile || !targetTile || (sourceTile.owner_user_id !== user.id && sourceTile.conquered_by_user_id !== user.id)) redirect("/game?view=karte&notice=invalid");
-  if (targetTile.is_main_village === 1 && targetTile.owner_user_id !== user.id) redirect(`/game?view=karte&x=${Math.max(0, target.x - 4)}&field=${target.y + 1}-${target.x + 1}&notice=protected`);
+  if (targetTile.is_main_village === 1 && targetTile.owner_user_id !== user.id) redirect(`/game?view=karte&x=${Math.max(0, target.x - 4)}&command=${source.y + 1}-${source.x + 1}&target=${target.y + 1}-${target.x + 1}&field=${target.y + 1}-${target.x + 1}&notice=protected`);
 
   const definitions = getGameState(user.id, user.race).unitDefs.filter((unit) => !unit.worker && unit.role !== "hero");
   const selected = definitions.map((definition) => {
@@ -137,7 +137,7 @@ export async function executeArmyCommand(formData: FormData) {
     const stack = database.prepare("SELECT quantity FROM unit_stacks WHERE user_id=? AND unit_key=? AND x=? AND y=?").get(user.id, definition.key, source.x, source.y) as { quantity: number } | undefined;
     return { definition, quantity: Math.min(requested, stack?.quantity ?? 0) };
   }).filter((entry) => entry.quantity > 0);
-  if (selected.length === 0) redirect(`/game?view=karte&x=${Math.max(0, source.x - 4)}&from=${source.y + 1}-${source.x + 1}&notice=units`);
+  if (selected.length === 0) redirect(`/game?view=karte&x=${Math.max(0, source.x - 4)}&command=${source.y + 1}-${source.x + 1}&target=${target.y + 1}-${target.x + 1}&field=${target.y + 1}-${target.x + 1}&notice=units`);
 
   const friendly = targetTile.owner_user_id === user.id || targetTile.conquered_by_user_id === user.id;
   const attackPower = selected.reduce((sum, entry) => sum + entry.quantity * Math.max(1, entry.definition.supply), 0);

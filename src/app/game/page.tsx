@@ -38,10 +38,8 @@ export default async function GamePage({ searchParams }: PageProps<"/game">) {
   const race = raceData[user.race];
   const world = !buildingViewKey && viewKey === "karte" ? getWorldMap(user.id, requestedStart) : null;
   const home = world?.home ?? ensureHomeTile(user.id);
-  const selectedField = typeof query.field === "string" ? query.field : null;
-  const sourceField = typeof query.from === "string" ? query.from : null;
+  const sourceField = typeof query.command === "string" ? query.command : null;
   const targetField = typeof query.target === "string" ? query.target : null;
-  const selectedTile = world?.tiles.find((tile) => `${tile.y + 1}-${tile.x + 1}` === selectedField) ?? null;
   const sourceTile = world?.tiles.find((tile) => `${tile.y + 1}-${tile.x + 1}` === sourceField) ?? null;
   const targetTile = world?.tiles.find((tile) => `${tile.y + 1}-${tile.x + 1}` === targetField) ?? null;
   const ranking = viewKey === "ranking" ? getRanking() : [];
@@ -70,7 +68,7 @@ export default async function GamePage({ searchParams }: PageProps<"/game">) {
     </aside>
     <section className="game-content">
       <header className="game-topbar"><div><span className="section-kicker">{race.name}</span><h1>{heading}</h1></div><ResourceHeader initial={{ ...economy, foodUsed: gameState.supplyUsed, foodCapacity: gameState.foodCapacity }} /></header>{notice && <div className="action-notice" role="status">{notice}</div>}
-      {buildingViewKey ? <BuildingDetailView state={gameState} home={home} buildingKey={buildingViewKey} race={user.race} /> : viewKey === "arbeiter" ? <WorkersView economy={economy} /> : viewKey === "bauen" ? <BuildView state={gameState} /> : viewKey === "einheiten" ? <UnitsView state={gameState} home={home} race={user.race} /> : viewKey === "ranking" ? <RankingView rows={ranking} selectedId={selectedPlayer} /> : <WorldMap tiles={world!.tiles} userId={user.id} home={world!.home} startX={world!.startX} totalWidth={world!.totalWidth} leftStart={world!.leftStart} rightStart={world!.rightStart} selectedTile={selectedTile} sourceTile={sourceTile} targetTile={targetTile} stacks={gameState.stacks} unitDefs={gameState.unitDefs} />}
+      {buildingViewKey ? <BuildingDetailView state={gameState} home={home} buildingKey={buildingViewKey} race={user.race} /> : viewKey === "arbeiter" ? <WorkersView economy={economy} /> : viewKey === "bauen" ? <BuildView state={gameState} /> : viewKey === "einheiten" ? <UnitsView state={gameState} home={home} race={user.race} /> : viewKey === "ranking" ? <RankingView rows={ranking} selectedId={selectedPlayer} /> : <WorldMap tiles={world!.tiles.map((tile) => ({ ...tile }))} userId={user.id} home={{ x: world!.home.x, y: world!.home.y }} startX={world!.startX} totalWidth={world!.totalWidth} leftStart={world!.leftStart} rightStart={world!.rightStart} sourceTile={sourceTile ? { ...sourceTile } : null} targetTile={targetTile ? { ...targetTile } : null} stacks={gameState.stacks.map((stack) => ({ ...stack }))} unitDefs={gameState.unitDefs.map((def) => ({ ...def }))} />}
     </section>
   </main>;
 }
