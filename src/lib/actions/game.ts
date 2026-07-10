@@ -138,8 +138,9 @@ export async function executeArmyCommand(formData: FormData) {
   const selected = definitions.map((definition) => {
     const requested = Math.max(0, Math.floor(Number(formData.get(`unit_${definition.key}`)) || 0));
     if (definition.role === "hero") {
-      const hero = database.prepare("SELECT alive FROM hero_units WHERE user_id=? AND hero_key=?").get(user.id, definition.key) as { alive: number } | undefined;
-      return { definition, quantity: hero?.alive === 1 && requested > 0 ? 1 : 0, hero: true };
+      const hero = database.prepare("SELECT alive,x,y FROM hero_units WHERE user_id=? AND hero_key=?").get(user.id, definition.key) as { alive: number; x: number | null; y: number | null } | undefined;
+      const atSource = hero?.alive === 1 && hero.x === source.x && hero.y === source.y;
+      return { definition, quantity: atSource && requested > 0 ? 1 : 0, hero: true };
     }
     const stack = database.prepare("SELECT quantity FROM unit_stacks WHERE user_id=? AND unit_key=? AND x=? AND y=?").get(user.id, definition.key, source.x, source.y) as { quantity: number } | undefined;
     return { definition, quantity: Math.min(requested, stack?.quantity ?? 0), hero: false };
@@ -154,6 +155,12 @@ export async function executeArmyCommand(formData: FormData) {
   database.exec("BEGIN IMMEDIATE");
   try {
     for (const entry of selected) {
+      if (entry.hero) {
+        // NULL position marks the hero as in transit until the march resolves.
+        const departure = database.prepare("UPDATE hero_units SET x=NULL, y=NULL WHERE user_id=? AND hero_key=? AND alive=1 AND x=? AND y=?").run(user.id, entry.definition.key, source.x, source.y);
+        if (departure.changes !== 1) throw new Error("Der Held ist nicht mehr auf dem Startfeld.");
+        continue;
+      }
       const deduction = database.prepare("UPDATE unit_stacks SET quantity=quantity-? WHERE user_id=? AND unit_key=? AND x=? AND y=? AND quantity>=?").run(entry.quantity, user.id, entry.definition.key, source.x, source.y, entry.quantity);
       if (deduction.changes !== 1) throw new Error("Der Einheitenbestand hat sich ge\u00e4ndert.");
     }

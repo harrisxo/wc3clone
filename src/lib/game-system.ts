@@ -32,7 +32,7 @@ export function processGameJobs(userId: number, race: Race) {
   for (const job of units) {
     const def = unitsByRace[race].find((u) => u.key === job.unit_key);
     if (def?.worker) database.prepare("UPDATE users SET total_workers=total_workers+? WHERE id=?").run(job.quantity, userId);
-    else if (def?.role === "hero") database.prepare("INSERT INTO hero_units(user_id,hero_key,level,alive,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(user_id,hero_key) DO UPDATE SET alive=1, updated_at=excluded.updated_at").run(userId, job.unit_key, 1, 1, now);
+    else if (def?.role === "hero") database.prepare("INSERT INTO hero_units(user_id,hero_key,level,alive,updated_at,x,y) VALUES(?,?,?,?,?,?,?) ON CONFLICT(user_id,hero_key) DO UPDATE SET alive=1, updated_at=excluded.updated_at, x=excluded.x, y=excluded.y").run(userId, job.unit_key, 1, 1, now, home.x, home.y);
     else database.prepare("INSERT INTO unit_stacks(user_id,unit_key,x,y,quantity) VALUES(?,?,?,?,?) ON CONFLICT(user_id,unit_key,x,y) DO UPDATE SET quantity=quantity+excluded.quantity").run(userId, job.unit_key, home.x, home.y, job.quantity);
     database.prepare("DELETE FROM unit_jobs WHERE id=?").run(job.id);
   }
@@ -61,14 +61,19 @@ export function processGameJobs(userId: number, race: Race) {
             createSystemMessage(userId, `Truppen auf ${targetName} angekommen`, `Deine Truppen sind auf Feld ${targetName} angekommen.\nEinheiten: ${unitSummary}`);
           }
           for (const u of units) {
-            if (u.hero) continue;
+            if (u.hero) {
+              database.prepare("UPDATE hero_units SET x=?, y=?, updated_at=? WHERE user_id=? AND hero_key=?").run(march.target_x, march.target_y, now, userId, u.unit_key);
+              continue;
+            }
             database.prepare("INSERT INTO unit_stacks(user_id,unit_key,x,y,quantity) VALUES(?,?,?,?,?) ON CONFLICT(user_id,unit_key,x,y) DO UPDATE SET quantity=quantity+excluded.quantity").run(userId, u.unit_key, march.target_x, march.target_y, u.quantity);
           }
         } else {
+          for (const u of units) if (u.hero) database.prepare("UPDATE hero_units SET alive=0, x=?, y=?, updated_at=? WHERE user_id=? AND hero_key=?").run(home.x, home.y, now, userId, u.unit_key);
           createSystemMessage(userId, `Angriff auf ${targetName} verloren`, `Dein Angriff auf Feld ${targetName} wurde abgewehrt.\nVerlorene Einheiten: ${unitSummary}\nVerteidiger am Ziel: ${enemy.quantity}\nGold erbeutet: 0`);
           if (defenderId && defenderId !== userId) createSystemMessage(defenderId, `Angriff auf ${targetName} abgewehrt`, `Ein Angriff auf dein Feld ${targetName} wurde abgewehrt.\nAngreifer vernichtet: ${unitSummary}\nVerteidiger am Ziel: ${enemy.quantity}`);
         }
       } else {
+        for (const u of units) if (u.hero) database.prepare("UPDATE hero_units SET alive=0, x=?, y=?, updated_at=? WHERE user_id=? AND hero_key=?").run(home.x, home.y, now, userId, u.unit_key);
         createSystemMessage(userId, `Marsch auf ${targetName} beendet`, `Das Ziel ${targetName} konnte nicht mehr gefunden werden.\nVerlorene Einheiten: ${unitSummary}`);
       }
       database.prepare("DELETE FROM army_marches WHERE id=?").run(march.id);
@@ -87,9 +92,9 @@ export function getGameState(userId: number, race: Race, options?: { persist?: b
   const profile = database.prepare("SELECT food_capacity FROM users WHERE id=?").get(userId) as { food_capacity: number };
   const buildings = database.prepare("SELECT building_key,queue_slots,upgrade_level FROM player_buildings WHERE user_id=?").all(userId) as { building_key: string; queue_slots: number; upgrade_level: number }[];
   const buildJobs = database.prepare("SELECT id,building_key,job_type,finishes_at FROM build_jobs WHERE user_id=? ORDER BY finishes_at").all(userId) as { id: number; building_key: string; job_type: string; finishes_at: string }[];
-  const stacks = database.prepare("SELECT unit_key,x,y,quantity FROM unit_stacks WHERE user_id=? AND quantity>0").all(userId) as { unit_key: string; x: number; y: number; quantity: number }[];
+  const stacks = database.prepare("SELECT s.unit_key,s.x,s.y,s.quantity,wt.field_type,wt.is_main_village FROM unit_stacks s LEFT JOIN world_tiles wt ON wt.x=s.x AND wt.y=s.y WHERE s.user_id=? AND s.quantity>0").all(userId) as { unit_key: string; x: number; y: number; quantity: number; field_type: string | null; is_main_village: number | null }[];
   const unitJobs = database.prepare("SELECT id,building_key,unit_key,quantity,finishes_at FROM unit_jobs WHERE user_id=? ORDER BY finishes_at").all(userId) as { id: number; building_key: string; unit_key: string; quantity: number; finishes_at: string }[];
-  const heroUnits = database.prepare("SELECT hero_key,level,alive,updated_at FROM hero_units WHERE user_id=?").all(userId) as { hero_key: string; level: number; alive: number; updated_at: string }[];
+  const heroUnits = database.prepare("SELECT h.hero_key,h.level,h.alive,h.updated_at,h.x,h.y,wt.field_type,wt.is_main_village FROM hero_units h LEFT JOIN world_tiles wt ON wt.x=h.x AND wt.y=h.y WHERE h.user_id=?").all(userId) as { hero_key: string; level: number; alive: number; updated_at: string; x: number | null; y: number | null; field_type: string | null; is_main_village: number | null }[];
   const marchRows = database.prepare("SELECT m.id,m.source_x,m.source_y,m.target_x,m.target_y,m.units,m.friendly,m.arrives_at,wt.field_type,wt.is_main_village,COALESCE(v.display_name,f.display_name) AS owner_name FROM army_marches m LEFT JOIN world_tiles wt ON wt.x=m.target_x AND wt.y=m.target_y LEFT JOIN users v ON v.id=wt.owner_user_id LEFT JOIN users f ON f.id=wt.conquered_by_user_id WHERE m.user_id=? ORDER BY m.arrives_at").all(userId) as { id: number; source_x: number; source_y: number; target_x: number; target_y: number; units: string; friendly: number; arrives_at: string; field_type: string; is_main_village: number; owner_name: string | null }[];
   const marches = marchRows.map((row) => ({ id: row.id, sourceX: row.source_x, sourceY: row.source_y, targetX: row.target_x, targetY: row.target_y, friendly: row.friendly === 1, arrivesAt: row.arrives_at, fieldType: row.field_type, isMainVillage: row.is_main_village === 1, ownerName: row.owner_name, units: JSON.parse(row.units) as { unit_key: string; quantity: number }[] }));
   const unitSupply = stacks.reduce((sum, s) => sum + (unitsByRace[race].find((u) => u.key === s.unit_key)?.supply ?? 0) * s.quantity, 0);

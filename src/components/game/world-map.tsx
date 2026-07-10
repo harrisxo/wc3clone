@@ -9,7 +9,7 @@ import { fieldInfo } from "./shared";
 import { ArmyCommandForm, type CommandUnit } from "./army-command-bar";
 
 type ArmyStack = { unit_key: string; x: number; y: number; quantity: number };
-type HeroUnit = { hero_key: string; level: number; alive: number; updated_at: string };
+type HeroUnit = { hero_key: string; level: number; alive: number; updated_at: string; x: number | null; y: number | null };
 
 export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, rightStart, sourceTile, targetTile, stacks, unitDefs, heroUnits }: {
   tiles: WorldTile[]; userId: number; home: { x: number; y: number }; startX: number; totalWidth: number;
@@ -32,7 +32,7 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
     return { key: stack.unit_key, name: def?.name ?? stack.unit_key, icon: def?.icon ?? "", supply: def?.supply ?? 1, available: stack.quantity };
   }) : [];
   const commandHeroes: CommandUnit[] = sourceTile ? unitDefs.filter((unit) => unit.role === "hero").map((unit) => {
-    const hero = heroUnits.find((entry) => entry.hero_key === unit.key && entry.alive === 1);
+    const hero = heroUnits.find((entry) => entry.hero_key === unit.key && entry.alive === 1 && entry.x === sourceTile.x && entry.y === sourceTile.y);
     return hero ? { key: unit.key, name: unit.name, icon: unit.icon, supply: unit.supply, available: 1 } : null;
   }).filter((entry): entry is CommandUnit => Boolean(entry)) : [];
 

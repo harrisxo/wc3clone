@@ -2,7 +2,7 @@
 import { redirect } from "next/navigation";
 import { logout } from "@/lib/actions/auth";
 import { getCurrentUser } from "@/lib/auth";
-import { getWorldMap, ensureHomeTile } from "@/lib/world";
+import { getWorldMap, ensureHomeTile, getOwnedTiles } from "@/lib/world";
 import { getGameState } from "@/lib/game-system";
 import { getRanking } from "@/lib/ranking";
 import { ResourceHeader } from "@/components/resource-header";
@@ -46,6 +46,8 @@ export default async function GamePage({ searchParams }: PageProps<"/game">) {
   const sourceTile = world?.tiles.find((tile) => `${tile.y + 1}-${tile.x + 1}` === sourceField) ?? null;
   const targetTile = world?.tiles.find((tile) => `${tile.y + 1}-${tile.x + 1}` === targetField) ?? null;
   const ranking = viewKey === "ranking" ? getRanking() : [];
+  const showAllFields = viewKey === "einheiten" && query.all === "1";
+  const ownedTiles = viewKey === "einheiten" ? getOwnedTiles(user.id) : [];
   const selectedPlayer = typeof query.player === "string" && /^\d+$/.test(query.player) ? Number(query.player) : null;
   const isMessagesView = viewKey === "nachrichten";
   const messages = isMessagesView ? getInbox(user.id) : [];
@@ -78,7 +80,7 @@ export default async function GamePage({ searchParams }: PageProps<"/game">) {
     </aside>
     <section className="game-content">
       <header className="game-topbar"><div><span className="section-kicker">{race.name}</span><h1>{heading}</h1></div><div className="topbar-actions"><Link className={`message-toplink${unreadMessages > 0 ? " has-unread" : ""}`} href="/game?view=nachrichten"><span aria-hidden="true">{"\u2709"}</span><strong>Nachrichten</strong>{unreadMessages > 0 && <em>{unreadMessages}</em>}</Link><ResourceHeader initial={{ ...economy, foodUsed: gameState.supplyUsed, foodCapacity: gameState.foodCapacity }} /></div></header>{notice && <div className="action-notice" role="status">{notice}</div>}
-      {buildingViewKey ? <BuildingDetailView state={gameState} home={home} buildingKey={buildingViewKey} race={user.race} /> : viewKey === "arbeiter" ? <WorkersView economy={economy} /> : viewKey === "bauen" ? <BuildView state={gameState} /> : viewKey === "angriffe" ? <AttacksView marches={gameState.marches} unitDefs={gameState.unitDefs} /> : viewKey === "einheiten" ? <UnitsView state={gameState} home={home} race={user.race} /> : viewKey === "ranking" ? <RankingView rows={ranking} selectedId={selectedPlayer} /> : viewKey === "nachrichten" ? <MessagesView messages={messages} recipients={messageRecipients} replyToId={replyToId} replySubjectText={replySubjectText} /> : <WorldMap tiles={world!.tiles.map((tile) => ({ ...tile }))} userId={user.id} home={{ x: world!.home.x, y: world!.home.y }} startX={world!.startX} totalWidth={world!.totalWidth} leftStart={world!.leftStart} rightStart={world!.rightStart} sourceTile={sourceTile ? { ...sourceTile } : null} targetTile={targetTile ? { ...targetTile } : null} stacks={gameState.stacks.map((stack) => ({ ...stack }))} unitDefs={gameState.unitDefs.map((def) => ({ ...def }))} heroUnits={gameState.heroUnits.map((hero) => ({ ...hero }))} />}
+      {buildingViewKey ? <BuildingDetailView state={gameState} home={home} buildingKey={buildingViewKey} race={user.race} /> : viewKey === "arbeiter" ? <WorkersView economy={economy} /> : viewKey === "bauen" ? <BuildView state={gameState} /> : viewKey === "angriffe" ? <AttacksView marches={gameState.marches} unitDefs={gameState.unitDefs} /> : viewKey === "einheiten" ? <UnitsView state={gameState} home={home} race={user.race} ownedTiles={ownedTiles} showAll={showAllFields} /> : viewKey === "ranking" ? <RankingView rows={ranking} selectedId={selectedPlayer} /> : viewKey === "nachrichten" ? <MessagesView messages={messages} recipients={messageRecipients} replyToId={replyToId} replySubjectText={replySubjectText} /> : <WorldMap tiles={world!.tiles.map((tile) => ({ ...tile }))} userId={user.id} home={{ x: world!.home.x, y: world!.home.y }} startX={world!.startX} totalWidth={world!.totalWidth} leftStart={world!.leftStart} rightStart={world!.rightStart} sourceTile={sourceTile ? { ...sourceTile } : null} targetTile={targetTile ? { ...targetTile } : null} stacks={gameState.stacks.map((stack) => ({ ...stack }))} unitDefs={gameState.unitDefs.map((def) => ({ ...def }))} heroUnits={gameState.heroUnits.map((hero) => ({ ...hero }))} />}
     </section>
   </main>;
 }

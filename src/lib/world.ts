@@ -104,6 +104,12 @@ export function ensureHomeTile(userId: number): Coordinate {
   }
 }
 
+export function getOwnedTiles(userId: number) {
+  return database
+    .prepare("SELECT x, y, field_type, is_main_village FROM world_tiles WHERE owner_user_id = ? OR conquered_by_user_id = ? ORDER BY y, x")
+    .all(userId, userId) as unknown as { x: number; y: number; field_type: FieldType; is_main_village: number }[];
+}
+
 export function getWorldMap(userId: number, requestedStart?: number) {
   const home = ensureHomeTile(userId);
   const dimensions = database.prepare("SELECT COALESCE(MAX(x), 9) + 1 AS width, 10 AS height FROM world_tiles").get() as { width: number; height: number };

@@ -14,6 +14,7 @@ export function ArmyCommandForm({ source, target, friendly, targetValid, targetP
   const selectAll = () => setCounts((current) => {
     const next = { ...current };
     for (const unit of units) next[unit.key] = unit.available;
+    for (const hero of heroes) next[hero.key] = hero.available;
     return next;
   });
   const totalUnits = units.reduce((sum, unit) => sum + (counts[unit.key] ?? 0), 0) + heroes.reduce((sum, hero) => sum + (counts[hero.key] ?? 0), 0);
@@ -38,6 +39,7 @@ export function ArmyCommandForm({ source, target, friendly, targetValid, targetP
             <button type="button" onClick={() => adjust(unit.key, -1, unit.available)} aria-label={`Weniger ${unit.name}`} disabled={value <= 0}>−</button>
             <input type="number" name={`unit_${unit.key}`} min={0} max={unit.available} value={value} onChange={(event) => set(unit.key, Number(event.target.value), unit.available)} />
             <button type="button" onClick={() => adjust(unit.key, 1, unit.available)} aria-label={`Mehr ${unit.name}`} disabled={value >= unit.available}>+</button>
+            <button type="button" className="army-stepper-max" onClick={() => set(unit.key, unit.available, unit.available)} disabled={value >= unit.available}>Max</button>
           </div>
         </div>;
       })}

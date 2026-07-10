@@ -225,7 +225,22 @@ const migrations: { version: number; run: () => void }[] = [
         CREATE INDEX messages_unread_idx ON messages(recipient_user_id, read_at);
       `);
     },
-  },];
+  },
+  {
+    // Heroes gain a map position so they can be stationed on conquered fields.
+    // NULL x/y means "in transit" (marching); existing heroes start at home.
+    version: 8,
+    run: () => {
+      database.exec(`
+        ALTER TABLE hero_units ADD COLUMN x INTEGER;
+        ALTER TABLE hero_units ADD COLUMN y INTEGER;
+        UPDATE hero_units SET
+          x = (SELECT wt.x FROM world_tiles wt WHERE wt.owner_user_id = hero_units.user_id AND wt.is_main_village = 1),
+          y = (SELECT wt.y FROM world_tiles wt WHERE wt.owner_user_id = hero_units.user_id AND wt.is_main_village = 1);
+      `);
+    },
+  },
+];
 
 const { user_version: currentVersion } = database.prepare("PRAGMA user_version").get() as { user_version: number };
 const pendingMigrations = migrations.filter((m) => m.version > currentVersion);
