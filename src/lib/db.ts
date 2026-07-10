@@ -188,6 +188,25 @@ const migrations: { version: number; run: () => void }[] = [
       `);
     },
   },
+  {
+    version: 6,
+    run: () => {
+      database.exec(`
+        CREATE TABLE army_marches (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          source_x INTEGER NOT NULL, source_y INTEGER NOT NULL,
+          target_x INTEGER NOT NULL, target_y INTEGER NOT NULL,
+          units TEXT NOT NULL,
+          friendly INTEGER NOT NULL DEFAULT 0 CHECK (friendly IN (0, 1)),
+          arrives_at TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX army_marches_user_idx ON army_marches(user_id, arrives_at);
+      `);
+    },
+  },
 ];
 
 const { user_version: currentVersion } = database.prepare("PRAGMA user_version").get() as { user_version: number };

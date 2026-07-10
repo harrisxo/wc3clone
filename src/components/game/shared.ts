@@ -9,6 +9,7 @@ export const raceData: Record<Race, { name: string; sigil: string; title: string
 
 export const views = {
   karte: { label: "Karte", icon: "⌖", heading: "Die Weltkarte" },
+  angriffe: { label: "Angriffe", icon: "⚔", heading: "Laufende Angriffe" },
   ranking: { label: "Ranking", icon: "♛", heading: "Rangliste" },
   arbeiter: { label: "Arbeiter", icon: "⚒", heading: "Arbeiter" },
   bauen: { label: "Bauen", icon: "▰", heading: "Bauvorhaben" },

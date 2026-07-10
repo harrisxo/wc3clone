@@ -5,6 +5,9 @@ import { database } from "@/lib/db";
 import { getGameState } from "@/lib/game-system";
 import { buildingUpgradeCost, foodBuildingCost, queueUpgradeCost } from "@/lib/costs";
 
+// Marching time scales with Manhattan distance to the target (seconds per field).
+const MARCH_SECONDS_PER_FIELD = 20;
+
 function safeView(value: FormDataEntryValue | null, fallback: string) {
   const s = String(value ?? "");
   return /^[a-z]+$/.test(s) ? s : fallback;
@@ -140,10 +143,9 @@ export async function executeArmyCommand(formData: FormData) {
   if (selected.length === 0) redirect(`/game?view=karte&x=${Math.max(0, source.x - 4)}&command=${source.y + 1}-${source.x + 1}&target=${target.y + 1}-${target.x + 1}&field=${target.y + 1}-${target.x + 1}&notice=units`);
 
   const friendly = targetTile.owner_user_id === user.id || targetTile.conquered_by_user_id === user.id;
-  const attackPower = selected.reduce((sum, entry) => sum + entry.quantity * Math.max(1, entry.definition.supply), 0);
-  const stationedEnemies = database.prepare("SELECT COALESCE(SUM(quantity),0) quantity FROM unit_stacks WHERE x=? AND y=? AND user_id<>?").get(target.x, target.y, user.id) as { quantity: number };
-  const defensePower = targetTile.monster_count + stationedEnemies.quantity * 2;
-  const victory = friendly || attackPower >= defensePower;
+  const distance = Math.abs(source.x - target.x) + Math.abs(source.y - target.y);
+  const arrivesAt = new Date(Date.now() + Math.max(15, distance * MARCH_SECONDS_PER_FIELD) * 1000).toISOString();
+  const payload = JSON.stringify(selected.map((entry) => ({ unit_key: entry.definition.key, quantity: entry.quantity })));
 
   database.exec("BEGIN IMMEDIATE");
   try {
@@ -152,20 +154,12 @@ export async function executeArmyCommand(formData: FormData) {
       if (deduction.changes !== 1) throw new Error("Der Einheitenbestand hat sich ge\u00e4ndert.");
     }
     database.prepare("DELETE FROM unit_stacks WHERE quantity<=0").run();
-    if (victory) {
-      if (!friendly) {
-        database.prepare("DELETE FROM unit_stacks WHERE x=? AND y=? AND user_id<>?").run(target.x, target.y, user.id);
-        database.prepare("UPDATE world_tiles SET conquered_by_user_id=?,monster_count=0,gold_reward=0 WHERE x=? AND y=?").run(user.id, target.x, target.y);
-        if (targetTile.gold_reward > 0) database.prepare("UPDATE users SET gold=gold+? WHERE id=?").run(targetTile.gold_reward, user.id);
-      }
-      for (const entry of selected) database.prepare("INSERT INTO unit_stacks(user_id,unit_key,x,y,quantity) VALUES(?,?,?,?,?) ON CONFLICT(user_id,unit_key,x,y) DO UPDATE SET quantity=quantity+excluded.quantity").run(user.id, entry.definition.key, target.x, target.y, entry.quantity);
-    }
+    database.prepare("INSERT INTO army_marches(user_id,source_x,source_y,target_x,target_y,units,friendly,arrives_at) VALUES(?,?,?,?,?,?,?,?)").run(user.id, source.x, source.y, target.x, target.y, payload, friendly ? 1 : 0, arrivesAt);
     database.exec("COMMIT");
   } catch (error) {
     database.exec("ROLLBACK");
     throw error;
   }
-  const notice = friendly ? "moved" : victory ? "victory" : "defeat";
-  redirect(`/game?view=karte&x=${Math.max(0, target.x - 4)}&field=${target.y + 1}-${target.x + 1}&notice=${notice}`);
+  redirect("/game?view=angriffe&notice=marching");
 }
 

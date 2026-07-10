@@ -11,6 +11,7 @@ import { WorldMap } from "@/components/game/world-map";
 import { WorkersView } from "@/components/game/workers-view";
 import { BuildView } from "@/components/game/build-view";
 import { UnitsView } from "@/components/game/units-view";
+import { AttacksView } from "@/components/game/attacks-view";
 import { BuildingDetailView } from "@/components/game/building-detail-view";
 import { RankingView } from "@/components/game/ranking-view";
 import { raceData, views, type View } from "@/components/game/shared";
@@ -44,7 +45,7 @@ export default async function GamePage({ searchParams }: PageProps<"/game">) {
   const targetTile = world?.tiles.find((tile) => `${tile.y + 1}-${tile.x + 1}` === targetField) ?? null;
   const ranking = viewKey === "ranking" ? getRanking() : [];
   const selectedPlayer = typeof query.player === "string" && /^\d+$/.test(query.player) ? Number(query.player) : null;
-  const notices: Record<string, string> = { resources: "Nicht gen\u00fcgend Gold oder Holz.", worker: "Du brauchst einen freien Arbeiter.", queue: "Diese Warteschlange ist bereits belegt.", food: "Dein Nahrungslimit ist erreicht.", building: "Das ben\u00f6tigte Geb\u00e4ude wurde noch nicht errichtet.", built: "Dieses Geb\u00e4ude ist bereits vorhanden.", invalid: "Diese Aktion ist nicht verf\u00fcgbar.", units: "Auf dem Startfeld wurden keine Einheiten ausgew\u00e4hlt.", moved: "Die Einheiten wurden verlegt.", victory: "Angriff gewonnen. Das Feld wurde eingenommen.", defeat: "Angriff verloren. Die entsandten Einheiten sind gefallen.", protected: "Fremde Hauptd\u00f6rfer sind derzeit gesch\u00fctzt." };
+  const notices: Record<string, string> = { resources: "Nicht gen\u00fcgend Gold oder Holz.", worker: "Du brauchst einen freien Arbeiter.", queue: "Diese Warteschlange ist bereits belegt.", food: "Dein Nahrungslimit ist erreicht.", building: "Das ben\u00f6tigte Geb\u00e4ude wurde noch nicht errichtet.", built: "Dieses Geb\u00e4ude ist bereits vorhanden.", invalid: "Diese Aktion ist nicht verf\u00fcgbar.", units: "Auf dem Startfeld wurden keine Einheiten ausgew\u00e4hlt.", moved: "Die Einheiten wurden verlegt.", victory: "Angriff gewonnen. Das Feld wurde eingenommen.", defeat: "Angriff verloren. Die entsandten Einheiten sind gefallen.", protected: "Fremde Hauptd\u00f6rfer sind derzeit gesch\u00fctzt.", marching: "Deine Truppen sind unterwegs." };
   const notice = typeof query.notice === "string" ? notices[query.notice] : null;
   const heading = buildingViewKey ? builtDefs.find((def) => def.key === buildingViewKey)!.name : views[viewKey].heading;
 
@@ -68,7 +69,7 @@ export default async function GamePage({ searchParams }: PageProps<"/game">) {
     </aside>
     <section className="game-content">
       <header className="game-topbar"><div><span className="section-kicker">{race.name}</span><h1>{heading}</h1></div><ResourceHeader initial={{ ...economy, foodUsed: gameState.supplyUsed, foodCapacity: gameState.foodCapacity }} /></header>{notice && <div className="action-notice" role="status">{notice}</div>}
-      {buildingViewKey ? <BuildingDetailView state={gameState} home={home} buildingKey={buildingViewKey} race={user.race} /> : viewKey === "arbeiter" ? <WorkersView economy={economy} /> : viewKey === "bauen" ? <BuildView state={gameState} /> : viewKey === "einheiten" ? <UnitsView state={gameState} home={home} race={user.race} /> : viewKey === "ranking" ? <RankingView rows={ranking} selectedId={selectedPlayer} /> : <WorldMap tiles={world!.tiles.map((tile) => ({ ...tile }))} userId={user.id} home={{ x: world!.home.x, y: world!.home.y }} startX={world!.startX} totalWidth={world!.totalWidth} leftStart={world!.leftStart} rightStart={world!.rightStart} sourceTile={sourceTile ? { ...sourceTile } : null} targetTile={targetTile ? { ...targetTile } : null} stacks={gameState.stacks.map((stack) => ({ ...stack }))} unitDefs={gameState.unitDefs.map((def) => ({ ...def }))} />}
+      {buildingViewKey ? <BuildingDetailView state={gameState} home={home} buildingKey={buildingViewKey} race={user.race} /> : viewKey === "arbeiter" ? <WorkersView economy={economy} /> : viewKey === "bauen" ? <BuildView state={gameState} /> : viewKey === "angriffe" ? <AttacksView marches={gameState.marches} unitDefs={gameState.unitDefs} /> : viewKey === "einheiten" ? <UnitsView state={gameState} home={home} race={user.race} /> : viewKey === "ranking" ? <RankingView rows={ranking} selectedId={selectedPlayer} /> : <WorldMap tiles={world!.tiles.map((tile) => ({ ...tile }))} userId={user.id} home={{ x: world!.home.x, y: world!.home.y }} startX={world!.startX} totalWidth={world!.totalWidth} leftStart={world!.leftStart} rightStart={world!.rightStart} sourceTile={sourceTile ? { ...sourceTile } : null} targetTile={targetTile ? { ...targetTile } : null} stacks={gameState.stacks.map((stack) => ({ ...stack }))} unitDefs={gameState.unitDefs.map((def) => ({ ...def }))} />}
     </section>
   </main>;
 }
