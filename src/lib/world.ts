@@ -1,4 +1,4 @@
-﻿import "server-only";
+import "server-only";
 import { randomInt } from "node:crypto";
 import { database } from "@/lib/db";
 
@@ -12,6 +12,7 @@ export type WorldTile = {
   monster_count: number;
   gold_reward: number;
   conquered_by_user_id: number | null;
+  tower_count: number;
   owner_name: string | null;
 };
 type Coordinate = { x: number; y: number };
@@ -106,8 +107,8 @@ export function ensureHomeTile(userId: number): Coordinate {
 
 export function getOwnedTiles(userId: number) {
   return database
-    .prepare("SELECT x, y, field_type, is_main_village FROM world_tiles WHERE owner_user_id = ? OR conquered_by_user_id = ? ORDER BY y, x")
-    .all(userId, userId) as unknown as { x: number; y: number; field_type: FieldType; is_main_village: number }[];
+    .prepare("SELECT x, y, field_type, is_main_village, tower_count FROM world_tiles WHERE owner_user_id = ? OR conquered_by_user_id = ? ORDER BY y, x")
+    .all(userId, userId) as unknown as { x: number; y: number; field_type: FieldType; is_main_village: number; tower_count: number }[];
 }
 
 export function getWorldMap(userId: number, requestedStart?: number) {
@@ -117,7 +118,7 @@ export function getWorldMap(userId: number, requestedStart?: number) {
   const homeStart = Math.min(maxStart, Math.max(0, home.x - 4));
   const startX = requestedStart === undefined ? homeStart : Math.min(maxStart, Math.max(0, Math.floor(requestedStart)));
   const tiles = database
-    .prepare("SELECT wt.x, wt.y, wt.owner_user_id, wt.is_main_village, wt.field_type, wt.monster_count, wt.gold_reward, wt.conquered_by_user_id, COALESCE(village_owner.display_name, field_owner.display_name) AS owner_name FROM world_tiles wt LEFT JOIN users village_owner ON village_owner.id = wt.owner_user_id LEFT JOIN users field_owner ON field_owner.id = wt.conquered_by_user_id WHERE wt.x BETWEEN ? AND ? ORDER BY wt.y, wt.x")
+    .prepare("SELECT wt.x, wt.y, wt.owner_user_id, wt.is_main_village, wt.field_type, wt.monster_count, wt.gold_reward, wt.conquered_by_user_id, wt.tower_count, COALESCE(village_owner.display_name, field_owner.display_name) AS owner_name FROM world_tiles wt LEFT JOIN users village_owner ON village_owner.id = wt.owner_user_id LEFT JOIN users field_owner ON field_owner.id = wt.conquered_by_user_id WHERE wt.x BETWEEN ? AND ? ORDER BY wt.y, wt.x")
     .all(startX, startX + 9) as unknown as WorldTile[];
   return { tiles, home, startX, height: dimensions.height, totalWidth: dimensions.width, leftStart: startX > 0 ? Math.max(0, startX - 10) : null, rightStart: startX < maxStart ? Math.min(maxStart, startX + 10) : null };
 }

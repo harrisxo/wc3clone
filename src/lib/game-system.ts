@@ -7,6 +7,9 @@ import { ensureHomeTile } from "@/lib/world";
 import { createSystemMessage } from "@/lib/messages";
 
 
+// Temporary tower strength; unit combat stats will replace this during balancing.
+const TOWER_DEFENSE = 1;
+
 function fieldLabel(x: number, y: number) {
   return `${y + 1}-${x + 1}`;
 }
@@ -35,7 +38,11 @@ export function processGameJobs(userId: number, race: Race) {
     else database.prepare("UPDATE player_buildings SET upgrade_level=upgrade_level+1 WHERE user_id=? AND building_key=?").run(userId, job.building_key);
     database.prepare("DELETE FROM build_jobs WHERE id=?").run(job.id);
   }
-  const units = database.prepare("SELECT id,unit_key,quantity FROM unit_jobs WHERE user_id=? AND finishes_at<=?").all(userId, now) as { id: number; unit_key: string; quantity: number }[];
+  const towerJobs = database.prepare("SELECT id,target_x,target_y FROM tower_jobs WHERE user_id=? AND finishes_at<=?").all(userId, now) as { id: number; target_x: number; target_y: number }[];
+  for (const job of towerJobs) {
+    database.prepare("UPDATE world_tiles SET tower_count=tower_count+1 WHERE x=? AND y=? AND is_main_village=0 AND tower_count<5 AND (owner_user_id=? OR conquered_by_user_id=?)").run(job.target_x, job.target_y, userId, userId);
+    database.prepare("DELETE FROM tower_jobs WHERE id=?").run(job.id);
+  }  const units = database.prepare("SELECT id,unit_key,quantity FROM unit_jobs WHERE user_id=? AND finishes_at<=?").all(userId, now) as { id: number; unit_key: string; quantity: number }[];
   for (const job of units) {
     const def = unitsByRace[race].find((u) => u.key === job.unit_key);
     if (def?.worker) database.prepare("UPDATE users SET total_workers=total_workers+? WHERE id=?").run(job.quantity, userId);
@@ -51,7 +58,7 @@ export function processGameJobs(userId: number, race: Race) {
   const marches = database.prepare("SELECT id,target_x,target_y,units FROM army_marches WHERE user_id=? AND arrives_at<=?").all(userId, now) as { id: number; target_x: number; target_y: number; units: string }[];
   for (const march of marches) {
     const units = JSON.parse(march.units) as { unit_key: string; quantity: number; hero?: boolean }[];
-    const target = database.prepare("SELECT owner_user_id,conquered_by_user_id,monster_count,gold_reward FROM world_tiles WHERE x=? AND y=?").get(march.target_x, march.target_y) as { owner_user_id: number | null; conquered_by_user_id: number | null; monster_count: number; gold_reward: number } | undefined;
+    const target = database.prepare("SELECT owner_user_id,conquered_by_user_id,monster_count,gold_reward,field_type,tower_count FROM world_tiles WHERE x=? AND y=?").get(march.target_x, march.target_y) as { owner_user_id: number | null; conquered_by_user_id: number | null; monster_count: number; gold_reward: number; field_type: string; tower_count: number } | undefined;
     const targetName = fieldLabel(march.target_x, march.target_y);
     const unitSummary = formatUnitsForReport(race, units);
     database.exec("BEGIN IMMEDIATE");
@@ -72,11 +79,12 @@ export function processGameJobs(userId: number, race: Race) {
           const key = stack.unit_key === "melee" ? "melee_defense" : stack.unit_key === "ranged" ? "ranged_defense" : null;
           return key ? sum + stack.quantity * researchLevel(stack.user_id, key) : sum;
         }, 0);
-        const victory = friendly || attackPower >= target.monster_count + enemy.quantity * 2 + defenseBonus;
+        const towerDefense = target.tower_count * TOWER_DEFENSE;
+        const victory = friendly || attackPower >= target.monster_count + enemy.quantity * 2 + defenseBonus + towerDefense;
         if (victory) {
           if (!friendly) {
             database.prepare("DELETE FROM unit_stacks WHERE x=? AND y=? AND user_id<>?").run(march.target_x, march.target_y, userId);
-            database.prepare("UPDATE world_tiles SET conquered_by_user_id=?,monster_count=0,gold_reward=0 WHERE x=? AND y=?").run(userId, march.target_x, march.target_y);
+            database.prepare("UPDATE world_tiles SET conquered_by_user_id=?,monster_count=0,gold_reward=0,tower_count=CASE WHEN field_type='goldmine' THEN 1 ELSE 0 END WHERE x=? AND y=?").run(userId, march.target_x, march.target_y);
             if (target.gold_reward > 0) database.prepare("UPDATE users SET gold=gold+? WHERE id=?").run(target.gold_reward, userId);
             createSystemMessage(userId, `Angriff auf ${targetName} gewonnen`, `Deine Truppen haben Feld ${targetName} eingenommen.\nEingesetzt: ${unitSummary}\nEigene Verluste: keine\nVerteidiger vernichtet: ${enemy.quantity}\nGold erbeutet: ${target.gold_reward}`);
             if (defenderId && defenderId !== userId) createSystemMessage(defenderId, `Feld ${targetName} verloren`, `Ein Angriff auf Feld ${targetName} war erfolgreich.\nVerteidiger verloren: ${enemy.quantity}\nDas Feld wurde vom Angreifer eingenommen.`);
@@ -118,13 +126,14 @@ export function getGameState(userId: number, race: Race, options?: { persist?: b
   const stacks = database.prepare("SELECT s.unit_key,s.x,s.y,s.quantity,wt.field_type,wt.is_main_village FROM unit_stacks s LEFT JOIN world_tiles wt ON wt.x=s.x AND wt.y=s.y WHERE s.user_id=? AND s.quantity>0").all(userId) as { unit_key: string; x: number; y: number; quantity: number; field_type: string | null; is_main_village: number | null }[];
   const unitJobs = database.prepare("SELECT id,building_key,unit_key,quantity,finishes_at FROM unit_jobs WHERE user_id=? ORDER BY finishes_at").all(userId) as { id: number; building_key: string; unit_key: string; quantity: number; finishes_at: string }[];
   const heroUnits = database.prepare("SELECT h.hero_key,h.level,h.alive,h.updated_at,h.x,h.y,h.item_towers,h.item_teleports,wt.field_type,wt.is_main_village FROM hero_units h LEFT JOIN world_tiles wt ON wt.x=h.x AND wt.y=h.y WHERE h.user_id=?").all(userId) as { hero_key: string; level: number; alive: number; updated_at: string; x: number | null; y: number | null; item_towers: number; item_teleports: number; field_type: string | null; is_main_village: number | null }[];
+  const towerJobs = database.prepare("SELECT id,target_x,target_y,finishes_at FROM tower_jobs WHERE user_id=? ORDER BY finishes_at").all(userId) as { id: number; target_x: number; target_y: number; finishes_at: string }[];
   const marchRows = database.prepare("SELECT m.id,m.source_x,m.source_y,m.target_x,m.target_y,m.units,m.friendly,m.arrives_at,wt.field_type,wt.is_main_village,COALESCE(v.display_name,f.display_name) AS owner_name FROM army_marches m LEFT JOIN world_tiles wt ON wt.x=m.target_x AND wt.y=m.target_y LEFT JOIN users v ON v.id=wt.owner_user_id LEFT JOIN users f ON f.id=wt.conquered_by_user_id WHERE m.user_id=? ORDER BY m.arrives_at").all(userId) as { id: number; source_x: number; source_y: number; target_x: number; target_y: number; units: string; friendly: number; arrives_at: string; field_type: string; is_main_village: number; owner_name: string | null }[];
   const marches = marchRows.map((row) => ({ id: row.id, sourceX: row.source_x, sourceY: row.source_y, targetX: row.target_x, targetY: row.target_y, friendly: row.friendly === 1, arrivesAt: row.arrives_at, fieldType: row.field_type, isMainVillage: row.is_main_village === 1, ownerName: row.owner_name, units: JSON.parse(row.units) as { unit_key: string; quantity: number }[] }));
   const researchJobs = database.prepare("SELECT id,research_key,finishes_at FROM research_jobs WHERE user_id=? ORDER BY finishes_at").all(userId) as { id: number; research_key: string; finishes_at: string }[];
   const researchLevels = Object.fromEntries(researchDefs.map((def) => [def.key, researchLevel(userId, def.key)])) as Record<ResearchKey, number>;
   const unitSupply = stacks.reduce((sum, s) => sum + (unitsByRace[race].find((u) => u.key === s.unit_key)?.supply ?? 0) * s.quantity, 0);
   const pendingSupply = unitJobs.reduce((sum, j) => sum + (unitsByRace[race].find((u) => u.key === j.unit_key)?.supply ?? 0) * j.quantity, 0);
-  return { economy, buildings, buildJobs, stacks, unitJobs, heroUnits, marches, researchJobs, researchLevels, foodCapacity: profile.food_capacity, supplyUsed: economy.totalWorkers + unitSupply + pendingSupply, busyWorkers: buildJobs.filter((j) => j.job_type === "build").length, buildingDefs: buildingsByRace[race], unitDefs: unitsByRace[race] };
+  return { economy, buildings, buildJobs, towerJobs, stacks, unitJobs, heroUnits, marches, researchJobs, researchLevels, foodCapacity: profile.food_capacity, supplyUsed: economy.totalWorkers + unitSupply + pendingSupply, busyWorkers: buildJobs.filter((j) => j.job_type === "build").length + towerJobs.length, buildingDefs: buildingsByRace[race], unitDefs: unitsByRace[race] };
 }
 
 

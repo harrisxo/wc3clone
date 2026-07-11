@@ -1,4 +1,4 @@
-﻿import "server-only";
+import "server-only";
 import { database } from "@/lib/db";
 
 export type EconomyState = {
@@ -49,7 +49,7 @@ function computeEconomy(userId: number): EconomyState {
   const gold = Math.min(caps.storage, user.gold + goldWorkers * 10 * elapsedHours);
   const wood = Math.min(caps.storage, user.wood + woodWorkers * 10 * elapsedHours);
 
-  const busyWorkers = (database.prepare("SELECT COUNT(*) count FROM build_jobs WHERE user_id = ? AND job_type = 'build'").get(userId) as { count: number }).count;
+  const busyWorkers = (database.prepare("SELECT (SELECT COUNT(*) FROM build_jobs WHERE user_id=? AND job_type='build') + (SELECT COUNT(*) FROM tower_jobs WHERE user_id=?) AS count").get(userId, userId) as { count: number }).count;
   return { gold, wood, goldCapacity: caps.storage, woodCapacity: caps.storage, totalWorkers: user.total_workers, goldWorkers, woodWorkers, goldWorkplaces: caps.goldWorkplaces, woodWorkplaces: caps.woodWorkplaces, busyWorkers, updatedAt: now.toISOString() };
 }
 

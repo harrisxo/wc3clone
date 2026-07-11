@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 // Interactive world map: left-click sets start, right-/double-click sets target.
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
@@ -7,6 +7,7 @@ import type { UnitDefinition } from "@/lib/game-data";
 import type { WorldTile } from "@/lib/world";
 import { fieldInfo } from "./shared";
 import { ArmyCommandForm, type CommandUnit } from "./army-command-bar";
+import { startTowerBuild } from "@/lib/actions/game";
 
 type ArmyStack = { unit_key: string; x: number; y: number; quantity: number };
 type HeroUnit = { hero_key: string; level: number; alive: number; updated_at: string; x: number | null; y: number | null };
@@ -91,7 +92,7 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
                 href={href}
                 onContextMenu={(event) => fixTarget(event, fieldName)} onDoubleClick={(event) => fixTarget(event, fieldName)}
                 key={`${tile.x}-${tile.y}`} role="gridcell" aria-label={`${label} auf Feld ${fieldName}`} title={`${label} ${"\u00b7"} Feld ${fieldName}`}>
-                <span className="tile-label">{fieldName}</span>
+                <span className="tile-label">{fieldName}</span>{tile.tower_count > 0 && <span className="tower-map-marker">♜ {tile.tower_count}</span>}
                 {visibleOwner && <span className={`territory-owner${isOwnField ? " own-owner" : ""}`}>{visibleOwner}</span>}
 
               </Link>;
@@ -109,7 +110,10 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
         <div className="cp-field"><span className="section-kicker">Startpunkt</span><strong>{sourceName ?? "\u2014"}</strong><small>{sourceTile ? `Feldtyp: ${feldtyp(sourceTile)}` : "Noch nicht gew\u00e4hlt"}</small></div>
         <div className="cp-field"><span className="section-kicker">Ziel</span><strong className={targetEnemy ? "relation-enemy" : targetFriendly ? "relation-friendly" : ""}>{targetName ?? "\u2014"}</strong><small>{targetTile ? `Feldtyp: ${feldtyp(targetTile)} ${"\u00b7"} ${relation}` : "Noch nicht gew\u00e4hlt"}</small></div>
       </div>
-      <form className="cp-goto" onSubmit={submitGoTo}>
+      {targetTile && targetFriendly && targetTile.is_main_village === 0 && <form className="tower-build-form" action={startTowerBuild}>
+        <input type="hidden" name="target" value={targetName ?? ""} />
+        <button type="submit">Freien Arbeiter entsenden · Turm bauen · Gold 1 · Holz 1 · 10s</button>
+      </form>}      <form className="cp-goto" onSubmit={submitGoTo}>
         <span className="section-kicker">Gehe zu</span>
         <input type="number" min={1} max={10} placeholder="Zeile" value={goTo.row} onChange={(event) => setGoTo((current) => ({ ...current, row: event.target.value }))} aria-label="Zeile" />
         <span aria-hidden="true">-</span>

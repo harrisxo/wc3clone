@@ -182,3 +182,5 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .army-overview-table tbody td:nth-child(n+3){text-align:center}.army-overview-table thead tr:nth-child(2) th{text-align:center}
 
 .army-overview-table td.unit-count-cell{text-align:center!important}
+
+.tower-map-marker{position:absolute;z-index:4;right:3px;bottom:3px;padding:2px 4px;border:1px solid rgba(240,201,79,.62);background:rgba(8,10,7,.78);color:#ffd45b;font-size:.52rem;font-weight:800;line-height:1;text-shadow:0 1px 2px #000;pointer-events:none}.tower-build-form{padding:10px 15px;border-bottom:1px solid rgba(255,255,255,.07)}.tower-build-form button,.hv-tower-place button{width:100%;min-height:30px;border:1px solid rgba(var(--accent-rgb),.4);background:rgba(var(--accent-rgb),.1);color:var(--accent);cursor:pointer;font-size:.55rem;font-weight:750;text-transform:uppercase}.tower-build-form button:hover,.hv-tower-place button:hover{background:rgba(var(--accent-rgb),.2)}.hv-tower-place{width:100%;margin-top:8px}.hv-tower-place button{padding:7px 9px}

@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { placeHeroTower } from "@/lib/actions/game";
 import Link from "next/link";
 import type { Race } from "@/lib/auth";
 import type { getGameState } from "@/lib/game-system";
@@ -47,6 +48,11 @@ export function HeroesView({ state, home, race }: { state: ReturnType<typeof get
                 <span className="hv-slot-name">Teleports</span>
               </div>
             </div>
+            {hero && hero.alive === 1 && hero.x !== null && hero.y !== null && towers > 0 && <form className="hv-tower-place" action={placeHeroTower}>
+              <input type="hidden" name="hero" value={hero.hero_key} />
+              <input type="hidden" name="returnView" value="helden" />
+              <button type="submit">Turm auf diesem Feld abstellen</button>
+            </form>}
           </div>
         </article>;
       })}

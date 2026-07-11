@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { database } from "@/lib/db";
@@ -115,6 +115,7 @@ export async function trainUnit(formData: FormData) {
 // Hero inventory: 2 slots (one stack per item kind), combined capacity 6 items.
 const HERO_ITEM_CAPACITY = 6;
 const heroItemCost = { gold: 1, wood: 1 };
+const towerBuildCost = { gold: 1, wood: 1, seconds: 10 };
 
 export async function buyHeroItem(formData: FormData) {
   const user = await getCurrentUser();
@@ -142,6 +143,69 @@ export async function buyHeroItem(formData: FormData) {
     redirect(`/game?view=${returnView}&notice=inventory`);
   }
   redirect(`/game?view=${returnView}`);
+}
+
+export async function placeHeroTower(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user?.race) redirect("/");
+  const heroKey = String(formData.get("hero"));
+  const returnView = safeView(formData.get("returnView"), "helden");
+  const state = getGameState(user.id, user.race);
+  const hero = state.heroUnits.find((entry) => entry.hero_key === heroKey && entry.alive === 1 && entry.x !== null && entry.y !== null);
+  if (!hero || hero.item_towers < 1 || hero.x === null || hero.y === null) redirect("/game?view=" + returnView + "&notice=invalid");
+
+  database.exec("BEGIN IMMEDIATE");
+  try {
+    const tile = database.prepare("SELECT owner_user_id,conquered_by_user_id,is_main_village,tower_count FROM world_tiles WHERE x=? AND y=?").get(hero.x, hero.y) as { owner_user_id: number | null; conquered_by_user_id: number | null; is_main_village: number; tower_count: number } | undefined;
+    const pending = (database.prepare("SELECT COUNT(*) AS count FROM tower_jobs WHERE user_id=? AND target_x=? AND target_y=?").get(user.id, hero.x, hero.y) as { count: number }).count;
+    if (!tile || tile.is_main_village === 1 || (tile.owner_user_id !== user.id && tile.conquered_by_user_id !== user.id) || tile.tower_count + pending >= 5) {
+      database.exec("ROLLBACK");
+      redirect("/game?view=" + returnView + "&notice=towerfull");
+    }
+    const usedItem = database.prepare("UPDATE hero_units SET item_towers=item_towers-1 WHERE user_id=? AND hero_key=? AND alive=1 AND x=? AND y=? AND item_towers>0").run(user.id, heroKey, hero.x, hero.y);
+    const placed = database.prepare("UPDATE world_tiles SET tower_count=tower_count+1 WHERE x=? AND y=? AND tower_count<5").run(hero.x, hero.y);
+    if (usedItem.changes !== 1 || placed.changes !== 1) throw new Error("Der Turm konnte nicht platziert werden.");
+    database.exec("COMMIT");
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
+  }
+  redirect("/game?view=" + returnView + "&notice=towerplaced");
+}
+
+export async function startTowerBuild(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user?.race) redirect("/");
+  const target = parseCoordinate(formData.get("target"));
+  if (!target) redirect("/game?view=karte&notice=invalid");
+  const returnUrl = "/game?view=karte&x=" + Math.max(0, target.x - 4) + "&target=" + (target.y + 1) + "-" + (target.x + 1);
+  getGameState(user.id, user.race);
+
+  database.exec("BEGIN IMMEDIATE");
+  try {
+    const tile = database.prepare("SELECT owner_user_id,conquered_by_user_id,is_main_village,tower_count FROM world_tiles WHERE x=? AND y=?").get(target.x, target.y) as { owner_user_id: number | null; conquered_by_user_id: number | null; is_main_village: number; tower_count: number } | undefined;
+    const pending = (database.prepare("SELECT COUNT(*) AS count FROM tower_jobs WHERE user_id=? AND target_x=? AND target_y=?").get(user.id, target.x, target.y) as { count: number }).count;
+    const workerState = database.prepare("SELECT total_workers-gold_workers-wood_workers-(SELECT COUNT(*) FROM build_jobs WHERE user_id=? AND job_type='build')-(SELECT COUNT(*) FROM tower_jobs WHERE user_id=?) AS idle FROM users WHERE id=?").get(user.id, user.id, user.id) as { idle: number } | undefined;
+    if (!tile || tile.is_main_village === 1 || (tile.owner_user_id !== user.id && tile.conquered_by_user_id !== user.id) || tile.tower_count + pending >= 5) {
+      database.exec("ROLLBACK");
+      redirect(returnUrl + "&notice=towerfull");
+    }
+    if (!workerState || workerState.idle < 1) {
+      database.exec("ROLLBACK");
+      redirect(returnUrl + "&notice=worker");
+    }
+    const paid = database.prepare("UPDATE users SET gold=gold-?,wood=wood-? WHERE id=? AND gold>=? AND wood>=?").run(towerBuildCost.gold, towerBuildCost.wood, user.id, towerBuildCost.gold, towerBuildCost.wood);
+    if (paid.changes !== 1) {
+      database.exec("ROLLBACK");
+      redirect(returnUrl + "&notice=resources");
+    }
+    database.prepare("INSERT INTO tower_jobs(user_id,target_x,target_y,finishes_at) VALUES(?,?,?,?)").run(user.id, target.x, target.y, new Date(Date.now() + towerBuildCost.seconds * 1000).toISOString());
+    database.exec("COMMIT");
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
+  }
+  redirect(returnUrl + "&notice=towerworker");
 }
 
 // Research is queued in the forge; each of the four upgrades levels endlessly,

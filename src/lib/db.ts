@@ -1,4 +1,4 @@
-﻿import "server-only";
+import "server-only";
 import { mkdirSync } from "node:fs";
 import { randomInt } from "node:crypto";
 import path from "node:path";
@@ -273,6 +273,28 @@ const migrations: { version: number; run: () => void }[] = [
           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         );
         CREATE INDEX research_jobs_user_idx ON research_jobs(user_id, finishes_at);
+      `);
+    },
+  },
+  {
+    // Towers belong to individual owned fields. Existing conquered mines get
+    // the same automatic first tower as newly conquered mines.
+    version: 11,
+    run: () => {
+      database.exec(`
+        ALTER TABLE world_tiles ADD COLUMN tower_count INTEGER NOT NULL DEFAULT 0 CHECK (tower_count BETWEEN 0 AND 5);
+        CREATE TABLE tower_jobs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          target_x INTEGER NOT NULL,
+          target_y INTEGER NOT NULL,
+          finishes_at TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          FOREIGN KEY (target_x, target_y) REFERENCES world_tiles(x, y) ON DELETE CASCADE
+        );
+        CREATE INDEX tower_jobs_user_idx ON tower_jobs(user_id, finishes_at);
+        UPDATE world_tiles SET tower_count=1 WHERE field_type='goldmine' AND conquered_by_user_id IS NOT NULL;
       `);
     },
   },
