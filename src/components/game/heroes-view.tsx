@@ -3,6 +3,7 @@ import { placeHeroTower } from "@/lib/actions/game";
 import Link from "next/link";
 import type { Race } from "@/lib/auth";
 import type { getGameState } from "@/lib/game-system";
+import { heroStats, xpForNextLevel } from "@/lib/game-data";
 import { fieldInfo } from "./shared";
 
 export function HeroesView({ state, home, race }: { state: ReturnType<typeof getGameState>; home: { x: number; y: number }; race: Race }) {
@@ -21,13 +22,19 @@ export function HeroesView({ state, home, race }: { state: ReturnType<typeof get
           : { name: hero.is_main_village === 1 ? "Hauptdorf" : fieldInfo[hero.field_type as keyof typeof fieldInfo]?.name ?? "Unbekannt", field: `${hero.y + 1}-${hero.x + 1}`, x: hero.x };
         const towers = hero?.item_towers ?? 0;
         const teleports = hero?.item_teleports ?? 0;
+        const level = hero?.level ?? 1;
+        const stats = heroStats(level);
 
         return <article className={`hv-card hv-${statusKind}`} key={def.key}>
           <header className="hv-head">
             <Image className="hv-portrait" src={`/heroes/${race}-${def.key.replace("_", "-")}.jpg`} alt={`Porträt von ${def.name}`} width={56} height={56} />
-            <div className="hv-title"><h3>{def.name}</h3><small>Level {hero?.level ?? 1}</small></div>
+            <div className="hv-title"><h3>{def.name}</h3><small>Level {level}{hero ? ` · ${hero.xp} / ${xpForNextLevel(level)} XP` : ""}</small></div>
             <span className={`hv-status hv-status-${statusKind}`}>{status}</span>
           </header>
+          <div className="hv-row">
+            <span className="hv-label">Kampfwerte</span>
+            <span className="hv-location hv-stats">⚔ Schaden {stats.damage[0]}–{stats.damage[1]} · ▣ Verteidigung {stats.defense[0]}–{stats.defense[1]}</span>
+          </div>
           <div className="hv-row">
             <span className="hv-label">Standort</span>
             {location

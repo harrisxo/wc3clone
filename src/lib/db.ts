@@ -298,6 +298,31 @@ const migrations: { version: number; run: () => void }[] = [
       `);
     },
   },
+  {
+    // Neutral creeps get individual combat stats, rolled once and stored as
+    // JSON so a field keeps its strength forever. Heroes start collecting XP.
+    // Ranges are frozen copies of the balance values at migration time.
+    version: 12,
+    run: () => {
+      database.exec(`
+        ALTER TABLE world_tiles ADD COLUMN creeps TEXT;
+        ALTER TABLE hero_units ADD COLUMN xp INTEGER NOT NULL DEFAULT 0;
+      `);
+      const ranges: Record<string, { count: [number, number]; damage: [number, number]; defense: [number, number] }> = {
+        small: { count: [3, 5], damage: [1, 3], defense: [1, 3] },
+        medium: { count: [6, 10], damage: [2, 5], defense: [2, 5] },
+        goldmine: { count: [10, 15], damage: [3, 6], defense: [3, 6] },
+      };
+      const tiles = database.prepare("SELECT x, y, field_type FROM world_tiles WHERE owner_user_id IS NULL AND conquered_by_user_id IS NULL AND is_main_village = 0").all() as { x: number; y: number; field_type: string }[];
+      const update = database.prepare("UPDATE world_tiles SET creeps = ?, monster_count = ? WHERE x = ? AND y = ?");
+      for (const tile of tiles) {
+        const range = ranges[tile.field_type] ?? ranges.small;
+        const count = randomInt(range.count[0], range.count[1] + 1);
+        const creeps = Array.from({ length: count }, () => ({ damage: randomInt(range.damage[0], range.damage[1] + 1), defense: randomInt(range.defense[0], range.defense[1] + 1) }));
+        update.run(JSON.stringify(creeps), count, tile.x, tile.y);
+      }
+    },
+  },
 ];
 
 const { user_version: currentVersion } = database.prepare("PRAGMA user_version").get() as { user_version: number };

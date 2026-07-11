@@ -1,8 +1,10 @@
 import "server-only";
 import { randomInt } from "node:crypto";
 import { database } from "@/lib/db";
+import { creepRanges } from "@/lib/game-data";
 
 export type FieldType = "small" | "medium" | "goldmine";
+export type Creep = { damage: number; defense: number };
 export type WorldTile = {
   x: number;
   y: number;
@@ -17,19 +19,26 @@ export type WorldTile = {
 };
 type Coordinate = { x: number; y: number };
 
+// Creep count and per-creep stats are rolled once here and never change.
+export function rollCreeps(fieldType: FieldType): Creep[] {
+  const range = creepRanges[fieldType];
+  const count = randomInt(range.count[0], range.count[1] + 1);
+  return Array.from({ length: count }, () => ({ damage: randomInt(range.damage[0], range.damage[1] + 1), defense: randomInt(range.defense[0], range.defense[1] + 1) }));
+}
+
 function randomField() {
   const roll = randomInt(100);
-  if (roll < 34) return { type: "small" as const, monsters: 20, gold: randomInt(100, 201) };
-  if (roll < 68) return { type: "medium" as const, monsters: 50, gold: randomInt(200, 501) };
-  return { type: "goldmine" as const, monsters: 100, gold: 0 };
+  const type = roll < 34 ? ("small" as const) : roll < 68 ? ("medium" as const) : ("goldmine" as const);
+  const gold = type === "small" ? randomInt(100, 201) : type === "medium" ? randomInt(200, 501) : 0;
+  return { type, gold, creeps: rollCreeps(type) };
 }
 
 function addColumns(startX: number, count: number) {
-  const insert = database.prepare("INSERT INTO world_tiles (x, y, field_type, monster_count, gold_reward) VALUES (?, ?, ?, ?, ?)");
+  const insert = database.prepare("INSERT INTO world_tiles (x, y, field_type, monster_count, gold_reward, creeps) VALUES (?, ?, ?, ?, ?, ?)");
   for (let x = startX; x < startX + count; x += 1)
     for (let y = 0; y < 10; y += 1) {
       const stats = randomField();
-      insert.run(x, y, stats.type, stats.monsters, stats.gold);
+      insert.run(x, y, stats.type, stats.creeps.length, stats.gold, JSON.stringify(stats.creeps));
     }
 }
 
@@ -95,7 +104,7 @@ export function ensureHomeTile(userId: number): Coordinate {
       home = { x: randomInt(edge.start_x, edge.start_x + 5), y: randomInt(0, 10) };
     }
 
-    const result = database.prepare("UPDATE world_tiles SET owner_user_id = ?, is_main_village = 1, monster_count = 0, gold_reward = 0 WHERE x = ? AND y = ? AND owner_user_id IS NULL").run(userId, home.x, home.y);
+    const result = database.prepare("UPDATE world_tiles SET owner_user_id = ?, is_main_village = 1, monster_count = 0, gold_reward = 0, creeps = NULL WHERE x = ? AND y = ? AND owner_user_id IS NULL").run(userId, home.x, home.y);
     if (result.changes !== 1) throw new Error("Das Hauptdorf konnte nicht platziert werden.");
     database.exec("COMMIT");
     return home;
