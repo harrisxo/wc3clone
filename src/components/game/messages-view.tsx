@@ -1,5 +1,5 @@
 ﻿import Link from "next/link";
-import { deleteMessage, sendPlayerMessage } from "@/lib/actions/messages";
+import { deleteAllSystemMessages, deleteMessage, sendPlayerMessage, toggleMessageSaved } from "@/lib/actions/messages";
 import type { GameMessage, MessageRecipient } from "@/lib/messages";
 
 function formatDate(value: string) {
@@ -10,7 +10,7 @@ function replySubject(subject: string) {
   return subject.toLowerCase().startsWith("re:") ? subject : `Re: ${subject}`;
 }
 
-export function MessagesView({ messages, recipients, replyToId, replySubjectText }: { messages: GameMessage[]; recipients: MessageRecipient[]; replyToId: number | null; replySubjectText: string }) {
+export function MessagesView({ messages, recipients, replyToId, replySubjectText, savedOnly }: { messages: GameMessage[]; recipients: MessageRecipient[]; replyToId: number | null; replySubjectText: string; savedOnly: boolean }) {
   const selectedRecipientName = replyToId ? recipients.find((recipient) => recipient.id === replyToId)?.displayName ?? messages.find((message) => message.senderUserId === replyToId)?.senderName ?? "Unbekannt" : null;
   const visibleRecipients = selectedRecipientName && replyToId && !recipients.some((recipient) => recipient.id === replyToId)
     ? [{ id: replyToId, displayName: selectedRecipientName, username: selectedRecipientName }, ...recipients]
@@ -19,19 +19,26 @@ export function MessagesView({ messages, recipients, replyToId, replySubjectText
 
   return <div className="messages-view">
     <section className="messages-inbox">
-      <div className="messages-intro"><p className="section-kicker">Posteingang</p><h2>Berichte und Briefe</h2><p>Hier landen Kampfberichte und Nachrichten von anderen Spielern.</p></div>
+      <div className="messages-intro"><p className="section-kicker">{savedOnly ? "Archiv" : "Posteingang"}</p><h2>{savedOnly ? "Gespeicherte Nachrichten" : "Berichte und Briefe"}</h2><p>{savedOnly ? "Deine dauerhaft vorgemerkten Berichte und Briefe." : "Hier landen Kampfberichte und Nachrichten von anderen Spielern."}</p></div>
+      <div className="message-toolbar">
+        <nav aria-label="Nachrichtenfilter"><Link className={savedOnly ? "" : "active"} href="/game?view=nachrichten">Posteingang</Link><Link className={savedOnly ? "active" : ""} href="/game?view=nachrichten&filter=saved">Gespeichert</Link></nav>
+        <form action={deleteAllSystemMessages}><button type="submit">Alle Systemnachrichten löschen</button></form>
+      </div>
       {messages.length === 0
-        ? <p className="messages-empty">Noch keine Nachrichten vorhanden.</p>
+        ? <p className="messages-empty">{savedOnly ? "Keine gespeicherten Nachrichten vorhanden." : "Noch keine Nachrichten vorhanden."}</p>
         : <div className="message-list">{messages.map((message) => {
           const canReply = message.kind === "player" && message.senderUserId !== null;
           const replyHref = canReply ? `/game?view=nachrichten&replyTo=${message.senderUserId}&replySubject=${encodeURIComponent(replySubject(message.subject))}` : null;
-          return <article className={`message-card message-${message.kind}${message.readAt ? "" : " unread"}`} key={message.id}>
-            <header><span>{message.kind === "report" ? "Kampfbericht" : message.senderName ?? "Unbekannt"}</span><time dateTime={message.createdAt}>{formatDate(message.createdAt)}</time></header>
+          const mapHref = message.targetX !== null && message.targetY !== null ? `/game?view=karte&x=${Math.max(0, message.targetX - 4)}&target=${message.targetY + 1}-${message.targetX + 1}` : null;
+          return <article className={`message-card message-${message.kind}${message.readAt ? "" : " unread"}${message.savedAt ? " saved" : ""}`} key={message.id}>
+            <header><span>{message.kind === "report" ? "Systembericht" : message.senderName ?? "Unbekannt"}{message.savedAt && <em>Gespeichert</em>}</span><time dateTime={message.createdAt}>{formatDate(message.createdAt)}</time></header>
             <h3>{message.subject}</h3>
             <p>{message.body}</p>
             <div className="message-actions">
+              {mapHref && <Link className="message-map-link" href={mapHref}>Auf Karte zeigen</Link>}
               {replyHref && <Link className="message-reply" href={replyHref}>Antworten</Link>}
-              <form action={deleteMessage}><input type="hidden" name="messageId" value={message.id} /><button className="message-delete" type="submit">Löschen</button></form>
+              <form action={toggleMessageSaved}><input type="hidden" name="messageId" value={message.id} /><input type="hidden" name="savedOnly" value={savedOnly ? "1" : "0"} /><button className="message-save" type="submit">{message.savedAt ? "Nicht mehr speichern" : "Speichern"}</button></form>
+              <form action={deleteMessage}><input type="hidden" name="messageId" value={message.id} /><input type="hidden" name="savedOnly" value={savedOnly ? "1" : "0"} /><button className="message-delete" type="submit">Löschen</button></form>
             </div>
           </article>;
         })}</div>}
@@ -54,8 +61,3 @@ export function MessagesView({ messages, recipients, replyToId, replySubjectText
     </aside>
   </div>;
 }
-
-
-
-
-

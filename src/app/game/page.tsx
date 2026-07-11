@@ -55,13 +55,14 @@ export default async function GamePage({ searchParams }: PageProps<"/game">) {
   const ownedTiles = viewKey === "einheiten" ? getOwnedTiles(user.id) : [];
   const selectedPlayer = typeof query.player === "string" && /^\d+$/.test(query.player) ? Number(query.player) : null;
   const isMessagesView = viewKey === "nachrichten";
-  const messages = isMessagesView ? getInbox(user.id) : [];
+  const savedMessagesOnly = isMessagesView && query.filter === "saved";
+  const messages = isMessagesView ? getInbox(user.id, savedMessagesOnly) : [];
   const messageRecipients = isMessagesView ? getMessageRecipients(user.id) : [];
   const replyToId = isMessagesView && typeof query.replyTo === "string" && /^\d+$/.test(query.replyTo) ? Number(query.replyTo) : null;
   const replySubjectText = isMessagesView && typeof query.replySubject === "string" ? query.replySubject.slice(0, 80) : "";
   if (isMessagesView) markInboxRead(user.id);
   const unreadMessages = isMessagesView ? 0 : getUnreadMessageCount(user.id);
-  const notices: Record<string, string> = { resources: "Nicht gen\u00fcgend Gold oder Holz.", worker: "Du brauchst einen freien Arbeiter.", queue: "Diese Warteschlange ist bereits belegt.", food: "Dein Nahrungslimit ist erreicht.", building: "Das ben\u00f6tigte Geb\u00e4ude wurde noch nicht errichtet.", built: "Dieses Geb\u00e4ude ist bereits vorhanden.", invalid: "Diese Aktion ist nicht verf\u00fcgbar.", units: "Auf dem Startfeld wurden keine Einheiten ausgew\u00e4hlt.", moved: "Die Einheiten wurden verlegt.", victory: "Angriff gewonnen. Das Feld wurde eingenommen.", defeat: "Angriff verloren. Die entsandten Einheiten sind gefallen.", protected: "Fremde Hauptd\u00f6rfer sind derzeit gesch\u00fctzt.", marching: "Deine Truppen sind unterwegs.", sent: "Nachricht wurde gesendet.", herohome: "Der Held muss sich dafür im Hauptdorf befinden.", inventory: "Das Inventar dieses Helden ist voll (max. 6 Items).", towerfull: "Auf diesem Feld stehen bereits fuenf Tuerme oder sie werden gerade gebaut.", towerplaced: "Der Held hat einen Turm auf seinem Feld abgestellt.", towerworker: "Ein freier Arbeiter baut den Turm und kehrt nach Abschluss zurueck." };
+  const notices: Record<string, string> = { resources: "Nicht gen\u00fcgend Gold oder Holz.", worker: "Du brauchst einen freien Arbeiter.", queue: "Diese Warteschlange ist bereits belegt.", food: "Dein Nahrungslimit ist erreicht.", building: "Das ben\u00f6tigte Geb\u00e4ude wurde noch nicht errichtet.", built: "Dieses Geb\u00e4ude ist bereits vorhanden.", invalid: "Diese Aktion ist nicht verf\u00fcgbar.", units: "Auf dem Startfeld wurden keine Einheiten ausgew\u00e4hlt.", moved: "Die Einheiten wurden verlegt.", victory: "Angriff gewonnen. Das Feld wurde eingenommen.", defeat: "Angriff verloren. Die entsandten Einheiten sind gefallen.", protected: "Fremde Hauptd\u00f6rfer sind derzeit gesch\u00fctzt.", marching: "Deine Truppen sind unterwegs.", sent: "Nachricht wurde gesendet.", herohome: "Der Held muss sich daf\u00fcr im Hauptdorf befinden.", inventory: "Das Inventar dieses Helden ist voll (max. 6 Items).", towerfull: "Auf diesem Feld stehen bereits fuenf Tuerme oder sie werden gerade gebaut.", towerplaced: "Der Held hat einen Turm auf seinem Feld abgestellt.", towerworker: "Ein freier Arbeiter baut den Turm und kehrt nach Abschluss zurueck." };
   const notice = typeof query.notice === "string" ? notices[query.notice] : null;
   const heading = buildingViewKey ? builtDefs.find((def) => def.key === buildingViewKey)!.name : views[viewKey].heading;
 
@@ -85,19 +86,7 @@ export default async function GamePage({ searchParams }: PageProps<"/game">) {
     </aside>
     <section className="game-content">
       <header className="game-topbar"><div><span className="section-kicker">{race.name}</span><h1>{heading}</h1></div><div className="topbar-actions"><Link className={`message-toplink${unreadMessages > 0 ? " has-unread" : ""}`} href="/game?view=nachrichten"><span aria-hidden="true">{"\u2709"}</span><strong>Nachrichten</strong>{unreadMessages > 0 && <em>{unreadMessages}</em>}</Link><ResourceHeader initial={{ ...economy, foodUsed: gameState.supplyUsed, foodCapacity: gameState.foodCapacity }} /></div></header>{notice && <div className="action-notice" role="status">{notice}</div>}
-      {buildingViewKey ? <BuildingDetailView state={gameState} home={home} buildingKey={buildingViewKey} race={user.race} /> : viewKey === "arbeiter" ? <WorkersView economy={economy} /> : viewKey === "bauen" ? <BuildView state={gameState} /> : viewKey === "angriffe" ? <AttacksView marches={gameState.marches} unitDefs={gameState.unitDefs} /> : viewKey === "einheiten" ? <UnitsView state={gameState} home={home} race={user.race} ownedTiles={ownedTiles} showAll={showAllFields} /> : viewKey === "helden" ? <HeroesView state={gameState} home={home} race={user.race} /> : viewKey === "ranking" ? <RankingView rows={ranking} selectedId={selectedPlayer} /> : viewKey === "nachrichten" ? <MessagesView messages={messages} recipients={messageRecipients} replyToId={replyToId} replySubjectText={replySubjectText} /> : <WorldMap tiles={world!.tiles.map((tile) => ({ ...tile }))} userId={user.id} home={{ x: world!.home.x, y: world!.home.y }} startX={world!.startX} totalWidth={world!.totalWidth} leftStart={world!.leftStart} rightStart={world!.rightStart} sourceTile={sourceTile ? { ...sourceTile } : null} targetTile={targetTile ? { ...targetTile } : null} stacks={gameState.stacks.map((stack) => ({ ...stack }))} unitDefs={gameState.unitDefs.map((def) => ({ ...def }))} heroUnits={gameState.heroUnits.map((hero) => ({ ...hero }))} />}
+      {buildingViewKey ? <BuildingDetailView state={gameState} home={home} buildingKey={buildingViewKey} race={user.race} /> : viewKey === "arbeiter" ? <WorkersView economy={economy} /> : viewKey === "bauen" ? <BuildView state={gameState} /> : viewKey === "angriffe" ? <AttacksView marches={gameState.marches} unitDefs={gameState.unitDefs} now={new Date(gameState.economy.updatedAt).getTime()} /> : viewKey === "einheiten" ? <UnitsView state={gameState} home={home} race={user.race} ownedTiles={ownedTiles} showAll={showAllFields} /> : viewKey === "helden" ? <HeroesView state={gameState} home={home} race={user.race} /> : viewKey === "ranking" ? <RankingView rows={ranking} selectedId={selectedPlayer} /> : viewKey === "nachrichten" ? <MessagesView messages={messages} recipients={messageRecipients} replyToId={replyToId} replySubjectText={replySubjectText} savedOnly={savedMessagesOnly} /> : <WorldMap tiles={world!.tiles.map((tile) => ({ ...tile }))} userId={user.id} home={{ x: world!.home.x, y: world!.home.y }} startX={world!.startX} totalWidth={world!.totalWidth} leftStart={world!.leftStart} rightStart={world!.rightStart} sourceTile={sourceTile ? { ...sourceTile } : null} targetTile={targetTile ? { ...targetTile } : null} stacks={gameState.stacks.map((stack) => ({ ...stack }))} unitDefs={gameState.unitDefs.map((def) => ({ ...def }))} heroUnits={gameState.heroUnits.map((hero) => ({ ...hero }))} marches={gameState.marches.map((march) => ({ ...march, units: march.units.map((unit) => ({ ...unit })) }))} />}
     </section>
   </main>;
 }
-
-
-
-
-
-
-
-
-
-
-
-

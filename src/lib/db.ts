@@ -323,6 +323,31 @@ const migrations: { version: number; run: () => void }[] = [
       }
     },
   },
+  {
+    version: 13,
+    run: () => {
+      database.exec(`
+        ALTER TABLE messages ADD COLUMN saved_at TEXT;
+        ALTER TABLE messages ADD COLUMN target_x INTEGER;
+        ALTER TABLE messages ADD COLUMN target_y INTEGER;
+        CREATE INDEX messages_saved_idx ON messages(recipient_user_id, saved_at, created_at DESC);
+      `);
+    },
+  },
+  {
+    version: 14,
+    run: () => {
+      const reports = database.prepare("SELECT id,subject,body FROM messages WHERE kind='report' AND target_x IS NULL").all() as { id: number; subject: string; body: string }[];
+      const update = database.prepare("UPDATE messages SET target_x=?,target_y=? WHERE id=?");
+      for (const report of reports) {
+        const match = /\b(\d+)-(\d+)\b/.exec(`${report.subject} ${report.body}`);
+        if (!match) continue;
+        const y = Number(match[1]) - 1;
+        const x = Number(match[2]) - 1;
+        if (x >= 0 && y >= 0 && y < 10) update.run(x, y, report.id);
+      }
+    },
+  },
 ];
 
 const { user_version: currentVersion } = database.prepare("PRAGMA user_version").get() as { user_version: number };
@@ -354,5 +379,3 @@ if (!database.prepare("SELECT 1 FROM users WHERE is_admin = 1 LIMIT 1").get()) {
 }
 
 export { database };
-
-

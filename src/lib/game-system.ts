@@ -143,7 +143,7 @@ export function processGameJobs(userId: number, race: Race) {
         const friendly = target.owner_user_id === userId || target.conquered_by_user_id === userId;
         const defenderId = target.conquered_by_user_id ?? target.owner_user_id;
         if (friendly) {
-          createSystemMessage(userId, `Truppen auf ${targetName} angekommen`, `Deine Truppen sind auf Feld ${targetName} angekommen.\nEinheiten: ${unitSummary}`);
+          createSystemMessage(userId, `Truppen auf ${targetName} angekommen`, `Deine Truppen sind auf Feld ${targetName} angekommen.\nEinheiten: ${unitSummary}`, { x: march.target_x, y: march.target_y });
           for (const u of units) {
             if (u.hero) database.prepare("UPDATE hero_units SET x=?, y=?, updated_at=? WHERE user_id=? AND hero_key=?").run(march.target_x, march.target_y, now, userId, u.unit_key);
             else database.prepare("INSERT INTO unit_stacks(user_id,unit_key,x,y,quantity) VALUES(?,?,?,?,?) ON CONFLICT(user_id,unit_key,x,y) DO UPDATE SET quantity=quantity+excluded.quantity").run(userId, u.unit_key, march.target_x, march.target_y, u.quantity);
@@ -187,7 +187,7 @@ export function processGameJobs(userId: number, race: Race) {
           const result = simulateBattle(attackers, defenders);
 
           // Both sides' heroes learn from the kills their side scored, even if
-          // they fell — XP and levels survive death and revival.
+          // they fell â€” XP and levels survive death and revival.
           awardHeroXp(attackerHeroes, result.defenderLosses, target.field_type);
           awardHeroXp(defenderHeroes.map((hero) => ({ owner: hero.user_id, heroKey: hero.hero_key })), result.attackerLosses, target.field_type);
 
@@ -216,8 +216,8 @@ export function processGameJobs(userId: number, race: Race) {
               database.prepare("INSERT INTO unit_stacks(user_id,unit_key,x,y,quantity) VALUES(?,?,?,?,?) ON CONFLICT(user_id,unit_key,x,y) DO UPDATE SET quantity=quantity+excluded.quantity").run(userId, unitKey, march.target_x, march.target_y, quantity);
             }
 
-            createSystemMessage(userId, `Angriff auf ${targetName} gewonnen`, `Deine Truppen haben Feld ${targetName} nach ${result.rounds} Runden eingenommen.\nEingesetzt: ${unitSummary}\nEigene Verluste: ${attackerLossReport}\nGegner vernichtet: ${defenderLossReport}\nGold erbeutet: ${target.gold_reward}`);
-            if (defenderId && defenderId !== userId) createSystemMessage(defenderId, `Feld ${targetName} verloren`, `Ein Angriff auf Feld ${targetName} war erfolgreich.\nDeine Verluste: ${defenderLossReport}\nAngreifer verloren: ${attackerLossReport}\nDas Feld wurde vom Angreifer eingenommen.`);
+            createSystemMessage(userId, `Angriff auf ${targetName} gewonnen`, `Deine Truppen haben Feld ${targetName} nach ${result.rounds} Runden eingenommen.\nEingesetzt: ${unitSummary}\nEigene Verluste: ${attackerLossReport}\nGegner vernichtet: ${defenderLossReport}\nGold erbeutet: ${target.gold_reward}`, { x: march.target_x, y: march.target_y });
+            if (defenderId && defenderId !== userId) createSystemMessage(defenderId, `Feld ${targetName} verloren`, `Ein Angriff auf Feld ${targetName} war erfolgreich.\nDeine Verluste: ${defenderLossReport}\nAngreifer verloren: ${attackerLossReport}\nDas Feld wurde vom Angreifer eingenommen.`, { x: march.target_x, y: march.target_y });
           } else {
             // The attack failed: the whole attacking force is gone, defenders
             // keep their survivors. Creeps on neutral fields recover fully.
@@ -242,13 +242,13 @@ export function processGameJobs(userId: number, race: Race) {
             database.prepare("DELETE FROM unit_stacks WHERE quantity<=0").run();
             if (towersLost > 0) database.prepare("UPDATE world_tiles SET tower_count=MAX(tower_count-?,0) WHERE x=? AND y=?").run(towersLost, march.target_x, march.target_y);
 
-            createSystemMessage(userId, `Angriff auf ${targetName} verloren`, `Dein Angriff auf Feld ${targetName} wurde nach ${result.rounds} Runden abgewehrt.\nVerlorene Einheiten: ${unitSummary}\nGegner vernichtet: ${defenderLossReport}\nGold erbeutet: 0`);
-            if (defenderId && defenderId !== userId) createSystemMessage(defenderId, `Angriff auf ${targetName} abgewehrt`, `Ein Angriff auf dein Feld ${targetName} wurde abgewehrt.\nAngreifer vernichtet: ${attackerLossReport}\nDeine Verluste: ${defenderLossReport}`);
+            createSystemMessage(userId, `Angriff auf ${targetName} verloren`, `Dein Angriff auf Feld ${targetName} wurde nach ${result.rounds} Runden abgewehrt.\nVerlorene Einheiten: ${unitSummary}\nGegner vernichtet: ${defenderLossReport}\nGold erbeutet: 0`, { x: march.target_x, y: march.target_y });
+            if (defenderId && defenderId !== userId) createSystemMessage(defenderId, `Angriff auf ${targetName} abgewehrt`, `Ein Angriff auf dein Feld ${targetName} wurde abgewehrt.\nAngreifer vernichtet: ${attackerLossReport}\nDeine Verluste: ${defenderLossReport}`, { x: march.target_x, y: march.target_y });
           }
         }
       } else {
         for (const u of units) if (u.hero) database.prepare("UPDATE hero_units SET alive=0, x=?, y=?, updated_at=? WHERE user_id=? AND hero_key=?").run(home.x, home.y, now, userId, u.unit_key);
-        createSystemMessage(userId, `Marsch auf ${targetName} beendet`, `Das Ziel ${targetName} konnte nicht mehr gefunden werden.\nVerlorene Einheiten: ${unitSummary}`);
+        createSystemMessage(userId, `Marsch auf ${targetName} beendet`, `Das Ziel ${targetName} konnte nicht mehr gefunden werden.\nVerlorene Einheiten: ${unitSummary}`, { x: march.target_x, y: march.target_y });
       }
       database.prepare("DELETE FROM army_marches WHERE id=?").run(march.id);
       database.exec("COMMIT");
@@ -278,8 +278,3 @@ export function getGameState(userId: number, race: Race, options?: { persist?: b
   const pendingSupply = unitJobs.reduce((sum, j) => sum + (unitsByRace[race].find((u) => u.key === j.unit_key)?.supply ?? 0) * j.quantity, 0);
   return { economy, buildings, buildJobs, towerJobs, stacks, unitJobs, heroUnits, marches, researchJobs, researchLevels, foodCapacity: profile.food_capacity, supplyUsed: economy.totalWorkers + unitSupply + pendingSupply, busyWorkers: buildJobs.filter((j) => j.job_type === "build").length + towerJobs.length, buildingDefs: buildingsByRace[race], unitDefs: unitsByRace[race] };
 }
-
-
-
-
-

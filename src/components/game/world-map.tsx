@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 // Interactive world map: left-click sets start, right-/double-click sets target.
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
@@ -11,12 +11,14 @@ import { startTowerBuild } from "@/lib/actions/game";
 
 type ArmyStack = { unit_key: string; x: number; y: number; quantity: number };
 type HeroUnit = { hero_key: string; level: number; alive: number; updated_at: string; x: number | null; y: number | null };
+type MapMarch = { id: number; sourceX: number; sourceY: number; targetX: number; targetY: number; friendly: boolean; arrivesAt: string; units: { unit_key: string; quantity: number }[] };
 
-export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, rightStart, sourceTile, targetTile, stacks, unitDefs, heroUnits }: {
+export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, rightStart, sourceTile, targetTile, stacks, unitDefs, heroUnits, marches }: {
   tiles: WorldTile[]; userId: number; home: { x: number; y: number }; startX: number; totalWidth: number;
   leftStart: number | null; rightStart: number | null; sourceTile: WorldTile | null; targetTile: WorldTile | null;
   stacks: ArmyStack[]; unitDefs: UnitDefinition[];
   heroUnits: HeroUnit[];
+  marches: MapMarch[];
 }) {
   const router = useRouter();
   const [goTo, setGoTo] = useState({ row: "", col: "" });
@@ -74,6 +76,22 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
           <div className="map-axis map-axis-x" aria-hidden="true">{Array.from({ length: 10 }, (_, index) => <span key={index}>{startX + index + 1}</span>)}</div>
           <div className="map-axis map-axis-y" aria-hidden="true">{Array.from({ length: 10 }, (_, index) => <span key={index}>{index + 1}</span>)}</div>
           <div className={`world-grid${sourceTile ? " targeting" : ""}`} role="grid" aria-label={`Kartenausschnitt von Spalte ${startX + 1} bis ${startX + 10}`}>
+            <svg className="march-map-overlay" viewBox="0 0 10 10" preserveAspectRatio="none" aria-hidden="true">
+              {marches.map((march) => {
+                const rawStartX = march.sourceX - startX + 0.5;
+                const rawTargetX = march.targetX - startX + 0.5;
+                const startVisible = rawStartX >= 0 && rawStartX <= 10;
+                const targetVisible = rawTargetX >= 0 && rawTargetX <= 10;
+                if (!startVisible && !targetVisible) return null;
+                const x1 = Math.min(9.9, Math.max(0.1, rawStartX));
+                const x2 = Math.min(9.9, Math.max(0.1, rawTargetX));
+                return <g className={march.friendly ? "march-route-friendly" : "march-route-attack"} key={march.id}>
+                  <line x1={x1} y1={march.sourceY + 0.5} x2={x2} y2={march.targetY + 0.5} vectorEffect="non-scaling-stroke" />
+                  {startVisible && <circle className="march-route-start" cx={x1} cy={march.sourceY + 0.5} r="0.12" vectorEffect="non-scaling-stroke" />}
+                  {targetVisible && <circle className="march-route-target" cx={x2} cy={march.targetY + 0.5} r="0.18" vectorEffect="non-scaling-stroke" />}
+                </g>;
+              })}
+            </svg>
             {tiles.map((tile) => {
               const isOwnHome = tile.owner_user_id === userId && tile.is_main_village === 1;
               const isVillage = tile.owner_user_id !== null && tile.is_main_village === 1;
@@ -86,6 +104,8 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
               const isSource = sourceTile?.x === tile.x && sourceTile?.y === tile.y;
               const isTarget = targetTile?.x === tile.x && targetTile?.y === tile.y;
               const label = isOwnHome ? "Dein Hauptdorf" : isVillage ? "Fremdes Hauptdorf" : territoryOwner ? `${fieldInfo[tile.field_type].name} von ${territoryOwner}` : fieldInfo[tile.field_type].name;
+              const arrivingMarch = marches.find((march) => march.targetX === tile.x && march.targetY === tile.y);
+              const departingMarch = marches.find((march) => march.sourceX === tile.x && march.sourceY === tile.y);
               const href = startHref(fieldName);
               return <Link
                 className={`world-tile field-${tile.field_type}${isOwnHome ? " home-tile" : isVillage ? " village-tile" : ""}${isOwnTerritory ? " own-territory" : isEnemyTerritory ? " enemy-territory" : ""}${isSource ? " command-source" : ""}${isTarget ? " command-target" : ""}`}
@@ -94,6 +114,8 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
                 key={`${tile.x}-${tile.y}`} role="gridcell" aria-label={`${label} auf Feld ${fieldName}`} title={`${label} ${"\u00b7"} Feld ${fieldName}`}>
                 <span className="tile-label">{fieldName}</span>
               {tile.tower_count > 0 && <span className="tower-map-marker">{"\u265c"} {tile.tower_count}</span>}
+                {arrivingMarch && <span className={`march-tile-marker ${arrivingMarch.friendly ? "march-friendly" : "march-attack"}`} title={arrivingMarch.friendly ? "Truppen treffen hier ein" : "Angriffsziel"}>{arrivingMarch.friendly ? "\u2192" : "\u2694"}</span>}
+                {!arrivingMarch && departingMarch && <span className={`march-tile-marker march-departing ${departingMarch.friendly ? "march-friendly" : "march-attack"}`} title="Truppen sind von hier unterwegs">{"\u25cf"}</span>}
                 {visibleOwner && <span className={`territory-owner${isOwnField ? " own-owner" : ""}`}>{visibleOwner}</span>}
 
               </Link>;
@@ -128,13 +150,3 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
     </aside>
   </div>;
 }
-
-
-
-
-
-
-
-
-
-
