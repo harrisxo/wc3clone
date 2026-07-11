@@ -2,7 +2,10 @@ import type { Race } from "@/lib/auth";
 
 export type BuildingDefinition = { key: string; name: string; icon: string; gold: number; wood: number; seconds: number; kind: "main" | "military" | "food" | "upgrade" | "special" };
 export type StatRange = [number, number];
-export type UnitDefinition = { key: string; name: string; icon: string; building: string; gold: number; wood: number; seconds: number; supply: number; worker?: boolean; role: "worker" | "melee" | "ranged" | "air" | "siege" | "hero"; unique?: boolean; damage: StatRange; defense: StatRange };
+// Damage is split by target domain: ground vs. air. Melee units cannot hit
+// air at all (their air range is [0,0]); ranged, air and hero units hit both.
+export type DomainDamage = { ground: StatRange; air: StatRange };
+export type UnitDefinition = { key: string; name: string; icon: string; building: string; gold: number; wood: number; seconds: number; supply: number; worker?: boolean; role: "worker" | "melee" | "ranged" | "air" | "siege" | "hero"; unique?: boolean; damage: DomainDamage; defense: StatRange };
 
 // TESTING: all gold/wood costs below are temporarily set to 1.
 export const DEVELOPMENT_UNIT_SECONDS = 10;
@@ -27,25 +30,50 @@ export const buildingsByRace: Record<Race, BuildingDefinition[]> = {
 // Combat stats per race and role. Every role has the same stat budget across
 // races (sum of all four numbers), only shifted between damage and defense:
 // orc hits harder, undead is tankier, nightelf shoots harder, human is even.
-type CombatStats = { damage: StatRange; defense: StatRange };
+// Melee cannot hit air targets at all; ranged and air units hit both domains
+// equally with the same roll. Siege engines are ground-only, like melee.
+type CombatStats = { damage: DomainDamage; defense: StatRange };
+const noAir: StatRange = [0, 0];
 const combatStatsByRace: Record<Race, Record<"melee" | "ranged" | "siege" | "air", CombatStats>> = {
-  human: { melee: { damage: [2, 4], defense: [3, 5] }, ranged: { damage: [3, 5], defense: [1, 3] }, siege: { damage: [5, 8], defense: [2, 4] }, air: { damage: [4, 7], defense: [4, 6] } },
-  orc: { melee: { damage: [3, 5], defense: [2, 4] }, ranged: { damage: [4, 5], defense: [1, 2] }, siege: { damage: [6, 9], defense: [1, 3] }, air: { damage: [5, 8], defense: [3, 5] } },
-  undead: { melee: { damage: [1, 3], defense: [4, 6] }, ranged: { damage: [2, 4], defense: [2, 4] }, siege: { damage: [4, 7], defense: [3, 5] }, air: { damage: [3, 6], defense: [5, 7] } },
-  nightelf: { melee: { damage: [2, 4], defense: [3, 5] }, ranged: { damage: [3, 6], defense: [1, 2] }, siege: { damage: [5, 8], defense: [2, 4] }, air: { damage: [5, 7], defense: [4, 5] } },
+  human: {
+    melee: { damage: { ground: [2, 4], air: noAir }, defense: [3, 5] },
+    ranged: { damage: { ground: [3, 5], air: [3, 5] }, defense: [1, 3] },
+    siege: { damage: { ground: [5, 8], air: noAir }, defense: [2, 4] },
+    air: { damage: { ground: [4, 7], air: [4, 7] }, defense: [4, 6] },
+  },
+  orc: {
+    melee: { damage: { ground: [3, 5], air: noAir }, defense: [2, 4] },
+    ranged: { damage: { ground: [4, 5], air: [4, 5] }, defense: [1, 2] },
+    siege: { damage: { ground: [6, 9], air: noAir }, defense: [1, 3] },
+    air: { damage: { ground: [5, 8], air: [5, 8] }, defense: [3, 5] },
+  },
+  undead: {
+    melee: { damage: { ground: [1, 3], air: noAir }, defense: [4, 6] },
+    ranged: { damage: { ground: [2, 4], air: [2, 4] }, defense: [2, 4] },
+    siege: { damage: { ground: [4, 7], air: noAir }, defense: [3, 5] },
+    air: { damage: { ground: [3, 6], air: [3, 6] }, defense: [5, 7] },
+  },
+  nightelf: {
+    melee: { damage: { ground: [2, 4], air: noAir }, defense: [3, 5] },
+    ranged: { damage: { ground: [3, 6], air: [3, 6] }, defense: [1, 2] },
+    siege: { damage: { ground: [5, 8], air: noAir }, defense: [2, 4] },
+    air: { damage: { ground: [5, 7], air: [5, 7] }, defense: [4, 5] },
+  },
 };
 
 // Heroes: identical across races, strong enough that four of them at level 1
 // always creep a medium field (4x13 damage >= 50 max defense) without losses
 // (each hero's 15+ defense exceeds any single round of field damage they soak).
-// +2 damage and +2 defense per level.
+// +2 damage and +2 defense per level. Heroes hit both ground and air.
 export function heroStats(level: number): CombatStats {
   const bonus = (level - 1) * 2;
-  return { damage: [13 + bonus, 18 + bonus], defense: [15 + bonus, 20 + bonus] };
+  const range: StatRange = [13 + bonus, 18 + bonus];
+  return { damage: { ground: range, air: range }, defense: [15 + bonus, 20 + bonus] };
 }
 
-// Placed field towers: very strong defenders; siege units deal triple damage to them.
-export const towerStats: CombatStats = { damage: [10, 15], defense: [20, 30] };
+// Placed field towers: very strong defenders that hit both ground and air;
+// siege units deal triple damage to them.
+export const towerStats: CombatStats = { damage: { ground: [10, 15], air: [10, 15] }, defense: [20, 30] };
 export const SIEGE_VS_TOWER_MULTIPLIER = 3;
 
 // Neutral creeps: count and per-creep stats are rolled once at world creation
@@ -68,6 +96,13 @@ export function xpForNextLevel(level: number) {
   return 100 * level * level;
 }
 
+// "Boden X–Y / Luft X–Y", or "Boden X–Y / –" when the unit can't hit air at all.
+export function formatDomainDamage(damage: DomainDamage) {
+  const ground = `${damage.ground[0]}–${damage.ground[1]}`;
+  const air = damage.air[0] === 0 && damage.air[1] === 0 ? "–" : `${damage.air[0]}–${damage.air[1]}`;
+  return `${ground} / ${air}`;
+}
+
 const heroUnit = (key: string, name: string): UnitDefinition => ({ key, name, icon: "✪", building: "magic", gold: 1, wood: 1, seconds: DEVELOPMENT_UNIT_SECONDS, supply: 1, role: "hero", unique: true, ...heroStats(1) });
 
 const units = (
@@ -79,7 +114,7 @@ const units = (
   air: string,
   heroes: [string, string, string, string],
 ): UnitDefinition[] => [
-  { key: "worker", name: worker, icon: "♟", building: "main", gold: 1, wood: 1, seconds: DEVELOPMENT_UNIT_SECONDS, supply: 1, worker: true, role: "worker", damage: [1, 1], defense: [1, 2] },
+  { key: "worker", name: worker, icon: "♟", building: "main", gold: 1, wood: 1, seconds: DEVELOPMENT_UNIT_SECONDS, supply: 1, worker: true, role: "worker", damage: { ground: [1, 1], air: noAir }, defense: [1, 2] },
   { key: "melee", name: melee, icon: "⚔", building: "barracks", gold: 1, wood: 1, seconds: DEVELOPMENT_UNIT_SECONDS, supply: 1, role: "melee", ...combatStatsByRace[race].melee },
   { key: "ranged", name: ranged, icon: "➶", building: "barracks", gold: 1, wood: 1, seconds: DEVELOPMENT_UNIT_SECONDS, supply: 1, role: "ranged", ...combatStatsByRace[race].ranged },
   { key: "siege", name: antiTower, icon: "⚙", building: "siege", gold: 1, wood: 1, seconds: DEVELOPMENT_UNIT_SECONDS, supply: 1, role: "siege", ...combatStatsByRace[race].siege },

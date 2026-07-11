@@ -103,6 +103,17 @@ a.hv-location:hover{text-decoration:underline}
 .quantity-exact button{flex:1;height:26px;padding:0 8px;border:1px solid rgba(var(--accent-rgb),.35);background:rgba(var(--accent-rgb),.12);color:var(--accent);cursor:pointer;font-size:.58rem;font-weight:750;text-transform:uppercase;white-space:nowrap}
 .quantity-exact button:hover{background:rgba(var(--accent-rgb),.22)}
 @media(max-width:520px){.quantity-presets button{min-width:0;flex:1}}
+/* Unit stats popover (Einheiten overview) */
+.unit-stats-trigger{padding:0;border:0;background:transparent;cursor:pointer;display:inline-flex;vertical-align:middle}
+.unit-stats-trigger img{display:block}
+.unit-stats-trigger:hover img{filter:brightness(1.2)}
+.unit-stats-trigger:focus-visible{outline:2px solid var(--gold-light);outline-offset:2px}
+.unit-stats-overlay{position:fixed;inset:0;z-index:60}
+.unit-stats-card{position:fixed;transform:translateX(-50%);z-index:61;min-width:190px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;border:1px solid rgba(var(--accent-rgb),.45);background:rgba(4,9,8,.97);box-shadow:0 10px 30px rgba(0,0,0,.6);text-align:left}
+.unit-stats-card strong{font:500 .8rem var(--font-heading),serif;color:#eee8dc;letter-spacing:.02em}
+.unit-stats-card small{color:#8a927c;font-size:.55rem;letter-spacing:.07em;text-transform:uppercase}
+.unit-stats-card span{color:#c8c2b6;font-size:.62rem;text-transform:none;letter-spacing:.02em;font-weight:500}
+.unit-stats-card em{color:#d8a844;font-size:.56rem;font-style:normal;line-height:1.4;text-transform:none;letter-spacing:.02em}
 /* Forge research */
 .research-section{margin-top:18px}
 .research-section h3{margin:0 0 12px;font:500 1rem var(--font-heading),serif}

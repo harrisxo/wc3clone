@@ -31,16 +31,29 @@ function researchBonuses(userId: number, role: string) {
   return { damage: researchLevel(userId, `${role}_damage` as ResearchKey), defense: researchLevel(userId, `${role}_defense` as ResearchKey) };
 }
 
+// Applies the flat research bonus to a damage range, but only if the unit
+// actually has a nonzero range for that domain (melee's air range stays
+// [0,0] rather than gaining phantom air damage from melee research).
+function withBonus([min, max]: [number, number], bonus: number): [number, number] {
+  return min === 0 && max === 0 ? [0, 0] : [min + bonus, max + bonus];
+}
+
 function unitFighters(owner: number, race: Race, unitKey: string, quantity: number): Fighter[] {
   const def = unitsByRace[race].find((entry) => entry.key === unitKey);
   if (!def) return [];
   const bonus = researchBonuses(owner, def.role);
-  return Array.from({ length: quantity }, () => ({ key: unitKey, owner, siege: def.role === "siege", damageMin: def.damage[0], damageMax: def.damage[1], damageBonus: bonus.damage, hp: roll(def.defense) + bonus.defense }));
+  const ground = withBonus(def.damage.ground, bonus.damage);
+  const air = withBonus(def.damage.air, bonus.damage);
+  return Array.from({ length: quantity }, () => ({
+    key: unitKey, owner, siege: def.role === "siege", domain: def.role === "air" ? "air" : "ground",
+    damageGroundMin: ground[0], damageGroundMax: ground[1], damageAirMin: air[0], damageAirMax: air[1],
+    hp: roll(def.defense) + bonus.defense,
+  }));
 }
 
 function heroFighter(owner: number, heroKey: string, level: number): Fighter {
   const stats = heroStats(level);
-  return { key: heroKey, owner, hero: true, damageMin: stats.damage[0], damageMax: stats.damage[1], damageBonus: 0, hp: roll(stats.defense) };
+  return { key: heroKey, owner, hero: true, damageGroundMin: stats.damage.ground[0], damageGroundMax: stats.damage.ground[1], damageAirMin: stats.damage.air[0], damageAirMax: stats.damage.air[1], hp: roll(stats.defense) };
 }
 
 // Groups fallen fighters into a readable report line, resolving unit names via
@@ -153,7 +166,7 @@ export function processGameJobs(userId: number, race: Race) {
           const defenders: Fighter[] = [];
           if (!defenderId && target.creeps) {
             for (const creep of JSON.parse(target.creeps) as { damage: number; defense: number }[]) {
-              defenders.push({ key: "creep", owner: null, damageMin: creep.damage, damageMax: creep.damage, damageBonus: 0, hp: creep.defense });
+              defenders.push({ key: "creep", owner: null, damageGroundMin: creep.damage, damageGroundMax: creep.damage, damageAirMin: 0, damageAirMax: 0, hp: creep.defense });
             }
           }
           const enemyStacks = database.prepare("SELECT s.user_id,s.unit_key,s.quantity,u.race FROM unit_stacks s JOIN users u ON u.id=s.user_id WHERE s.x=? AND s.y=? AND s.user_id<>? AND s.quantity>0").all(march.target_x, march.target_y, userId) as { user_id: number; unit_key: string; quantity: number; race: Race | null }[];
@@ -168,7 +181,7 @@ export function processGameJobs(userId: number, race: Race) {
             defenders.push(heroFighter(hero.user_id, hero.hero_key, hero.level));
           }
           for (let index = 0; index < target.tower_count; index += 1) {
-            defenders.push({ key: "tower", owner: defenderId, tower: true, damageMin: towerStats.damage[0], damageMax: towerStats.damage[1], damageBonus: 0, hp: roll(towerStats.defense) });
+            defenders.push({ key: "tower", owner: defenderId, tower: true, damageGroundMin: towerStats.damage.ground[0], damageGroundMax: towerStats.damage.ground[1], damageAirMin: towerStats.damage.air[0], damageAirMax: towerStats.damage.air[1], hp: roll(towerStats.defense) });
           }
 
           const result = simulateBattle(attackers, defenders);

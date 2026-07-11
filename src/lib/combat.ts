@@ -5,6 +5,13 @@ import { SIEGE_VS_TOWER_MULTIPLIER } from "@/lib/game-data";
 // to the weakest defenders first (defense acts as hit points, overkill carries
 // over), then the surviving defenders strike back. Repeats until one side is
 // wiped out; the winner keeps its survivors.
+//
+// Damage is split by target domain: a fighter's ground-damage range only ever
+// hits "ground" targets, its air-damage range only ever hits "air" targets.
+// Melee units carry an air range of [0,0], so they simply cannot scratch air
+// targets. Ranged, air and hero units carry a real range for both domains.
+
+export type Domain = "ground" | "air";
 
 export type Fighter = {
   key: string; // unit key, "tower" or "creep" — used for reporting and XP
@@ -12,9 +19,11 @@ export type Fighter = {
   hero?: boolean;
   tower?: boolean;
   siege?: boolean; // deals SIEGE_VS_TOWER_MULTIPLIER x damage against towers
-  damageMin: number;
-  damageMax: number;
-  damageBonus: number; // flat research bonus added to every roll
+  domain?: Domain; // which pool of incoming damage can hurt this fighter; defaults to "ground"
+  damageGroundMin: number;
+  damageGroundMax: number;
+  damageAirMin: number;
+  damageAirMax: number;
   hp: number; // rolled defense at battle start
 };
 
@@ -31,16 +40,19 @@ export type Rng = (min: number, maxInclusive: number) => number;
 const defaultRng: Rng = (min, maxInclusive) => randomInt(min, maxInclusive + 1);
 
 const MAX_ROUNDS = 50;
+const isAir = (fighter: Fighter) => fighter.domain === "air";
 
 function rollDamage(side: Fighter[], rng: Rng) {
-  let siege = 0;
-  let normal = 0;
+  let groundSiege = 0;
+  let groundNormal = 0;
+  let air = 0;
   for (const fighter of side) {
-    const damage = rng(fighter.damageMin, fighter.damageMax) + fighter.damageBonus;
-    if (fighter.siege) siege += damage;
-    else normal += damage;
+    const ground = rng(fighter.damageGroundMin, fighter.damageGroundMax);
+    if (fighter.siege) groundSiege += ground;
+    else groundNormal += ground;
+    air += rng(fighter.damageAirMin, fighter.damageAirMax);
   }
-  return { siege, normal };
+  return { groundSiege, groundNormal, air };
 }
 
 // Applies a damage pool to targets (weakest hp first); overkill carries over.
@@ -56,12 +68,15 @@ function applyDamage(pool: number, targets: Fighter[], multiplier: number) {
   return pool;
 }
 
-function strike(damage: { siege: number; normal: number }, defenders: Fighter[]) {
+function strike(damage: { groundSiege: number; groundNormal: number; air: number }, defenders: Fighter[]) {
+  const groundDefenders = defenders.filter((fighter) => !isAir(fighter) && fighter.hp > 0);
+  const airDefenders = defenders.filter((fighter) => isAir(fighter) && fighter.hp > 0);
   // Siege damage batters towers first (at the multiplier), then joins the
-  // normal pool; the normal pool hits everything weakest-first.
-  const towers = defenders.filter((fighter) => fighter.tower && fighter.hp > 0);
-  const leftoverSiege = applyDamage(damage.siege, towers, SIEGE_VS_TOWER_MULTIPLIER);
-  applyDamage(damage.normal + leftoverSiege, defenders.filter((fighter) => fighter.hp > 0), 1);
+  // normal ground pool; the normal pool hits everything weakest-first.
+  const towers = groundDefenders.filter((fighter) => fighter.tower);
+  const leftoverSiege = applyDamage(damage.groundSiege, towers, SIEGE_VS_TOWER_MULTIPLIER);
+  applyDamage(damage.groundNormal + leftoverSiege, groundDefenders, 1);
+  applyDamage(damage.air, airDefenders, 1);
 }
 
 export function simulateBattle(attackers: Fighter[], defenders: Fighter[], rng: Rng = defaultRng): BattleResult {

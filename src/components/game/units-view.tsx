@@ -2,6 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Race } from "@/lib/auth";
 import type { getGameState } from "@/lib/game-system";
+import { heroStats, towerStats } from "@/lib/game-data";
+import { UnitStatsPopover } from "@/components/game/unit-stats-popover";
 import { fieldInfo } from "./shared";
 
 const typeCodes: Record<string, string> = { small: "Dorf", medium: "Dorf", goldmine: "Mine" };
@@ -48,13 +50,26 @@ export function UnitsView({ state, home, race, ownedTiles, showAll }: { state: R
   const marchingHeroes = livingHeroes.filter((hero) => hero.x === null || hero.y === null);
   const hasMarchRow = state.marches.length > 0 || marchingHeroes.length > 0;
 
-  const heroCell = (hero: (typeof livingHeroes)[number]) => <Image src={`/heroes/${race}-${hero.hero_key.replace("_", "-")}.jpg`} alt={`Porträt von ${hero.definition!.name}`} title={`${hero.definition!.name}, Level ${hero.level}`} width={30} height={30} />;
+  const heroCell = (hero: (typeof livingHeroes)[number]) => {
+    const stats = heroStats(hero.level);
+    return <UnitStatsPopover name={hero.definition!.name} subtitle={`Level ${hero.level}`} damage={stats.damage} defense={stats.defense}>
+      <Image src={`/heroes/${race}-${hero.hero_key.replace("_", "-")}.jpg`} alt={`Porträt von ${hero.definition!.name}`} title={`${hero.definition!.name}, Level ${hero.level}`} width={30} height={30} />
+    </UnitStatsPopover>;
+  };
 
   return <div className="units-view">
     <div className="panel-heading"><p className="section-kicker">Übersicht</p><h2>Einheiten</h2><p>Alle Einheiten deines Volkes und ihr aktueller Standort.</p></div>
     <div className="army-table-wrap"><table className="game-table army-overview-table"><thead>
       <tr><th rowSpan={2}>Feld</th><th rowSpan={2}>Typ</th><th colSpan={combatUnits.length + 1}>Einheiten</th>{livingHeroes.length > 0 && <th className="hero-column-group" colSpan={livingHeroes.length}>Helden</th>}</tr>
-      <tr>{combatUnits.map((unit) => <th title={unit.name} key={unit.key}><Image className="unit-th-image" src={`/units/${race}-${unit.key}.png`} alt="" width={32} height={32} /></th>)}<th title="Verteidigungsturm"><Image className="unit-th-image" src="/units/tower.png" alt="" width={32} height={32} /></th>{livingHeroes.map((hero) => <th className="hero-column-name" key={hero.hero_key}>{hero.definition!.name}</th>)}</tr>
+      <tr>{combatUnits.map((unit) => <th title={unit.name} key={unit.key}>
+        <UnitStatsPopover name={unit.name} damage={unit.damage} defense={unit.defense} supply={unit.supply} gold={unit.gold} wood={unit.wood} note={unit.role === "siege" ? "Macht 3-fachen Schaden gegen Türme" : undefined}>
+          <Image className="unit-th-image" src={`/units/${race}-${unit.key}.png`} alt={unit.name} width={32} height={32} />
+        </UnitStatsPopover>
+      </th>)}<th title="Verteidigungsturm">
+        <UnitStatsPopover name="Verteidigungsturm" damage={towerStats.damage} defense={towerStats.defense} note="Wird von Belagerungseinheiten 3-fach getroffen">
+          <Image className="unit-th-image" src="/units/tower.png" alt="Verteidigungsturm" width={32} height={32} />
+        </UnitStatsPopover>
+      </th>{livingHeroes.map((hero) => <th className="hero-column-name" key={hero.hero_key}>{hero.definition!.name}</th>)}</tr>
     </thead><tbody>
       <tr><td>Insgesamt</td><td>—</td>{combatUnits.map((unit) => <td className="unit-count-cell" key={unit.key}>{(totals.get(unit.key) ?? 0) + (marchingQuantities.get(unit.key) ?? 0)}</td>)}<td className="unit-count-cell">{totalTowers}</td>{livingHeroes.map((hero) => <td className="hero-total-cell" key={hero.hero_key}>Level {hero.level}</td>)}</tr>
       {rows.map((row) => <tr key={`${row.x}:${row.y}`}>

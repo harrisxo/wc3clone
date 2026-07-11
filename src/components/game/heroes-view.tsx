@@ -33,7 +33,7 @@ export function HeroesView({ state, home, race }: { state: ReturnType<typeof get
           </header>
           <div className="hv-row">
             <span className="hv-label">Kampfwerte</span>
-            <span className="hv-location hv-stats">⚔ Schaden {stats.damage[0]}–{stats.damage[1]} · ▣ Verteidigung {stats.defense[0]}–{stats.defense[1]}</span>
+            <span className="hv-location hv-stats">⚔ Schaden {stats.damage.ground[0]}–{stats.damage.ground[1]} (Boden &amp; Luft) · ▣ Verteidigung {stats.defense[0]}–{stats.defense[1]}</span>
           </div>
           <div className="hv-row">
             <span className="hv-label">Standort</span>
