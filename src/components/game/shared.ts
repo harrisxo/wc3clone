@@ -15,6 +15,7 @@ export const views = {
   arbeiter: { label: "Arbeiter", icon: "\u2692", heading: "Arbeiter" },
   bauen: { label: "Bauen", icon: "\u25b0", heading: "Bauvorhaben" },
   einheiten: { label: "Einheiten", icon: "\u265e", heading: "Einheiten" },
+  helden: { label: "Helden", icon: "\u272a", heading: "Deine Helden" },
 } as const;
 
 export type View = keyof typeof views;

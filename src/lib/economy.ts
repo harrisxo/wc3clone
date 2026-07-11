@@ -24,7 +24,7 @@ function capacities(userId: number) {
     FROM world_tiles WHERE conquered_by_user_id = ?`,
     )
     .get(userId) as { storage_fields: number | null; mines: number | null };
-  return { storage: 5000 + (territory.storage_fields ?? 0) * 1000, goldWorkplaces: 5 + (territory.mines ?? 0) };
+  return { storage: 5000 + (territory.storage_fields ?? 0) * 1000, goldWorkplaces: 5 + (territory.mines ?? 0), woodWorkplaces: 5 + (territory.storage_fields ?? 0) };
 }
 
 function computeEconomy(userId: number): EconomyState {
@@ -45,12 +45,12 @@ function computeEconomy(userId: number): EconomyState {
   const elapsedHours = Math.max(0, now.getTime() - lastUpdate.getTime()) / 3_600_000;
   const caps = capacities(userId);
   const goldWorkers = Math.min(user.gold_workers, caps.goldWorkplaces);
-  const woodWorkers = Math.min(user.wood_workers, 5);
+  const woodWorkers = Math.min(user.wood_workers, caps.woodWorkplaces);
   const gold = Math.min(caps.storage, user.gold + goldWorkers * 10 * elapsedHours);
   const wood = Math.min(caps.storage, user.wood + woodWorkers * 10 * elapsedHours);
 
   const busyWorkers = (database.prepare("SELECT COUNT(*) count FROM build_jobs WHERE user_id = ? AND job_type = 'build'").get(userId) as { count: number }).count;
-  return { gold, wood, goldCapacity: caps.storage, woodCapacity: caps.storage, totalWorkers: user.total_workers, goldWorkers, woodWorkers, goldWorkplaces: caps.goldWorkplaces, woodWorkplaces: 5, busyWorkers, updatedAt: now.toISOString() };
+  return { gold, wood, goldCapacity: caps.storage, woodCapacity: caps.storage, totalWorkers: user.total_workers, goldWorkers, woodWorkers, goldWorkplaces: caps.goldWorkplaces, woodWorkplaces: caps.woodWorkplaces, busyWorkers, updatedAt: now.toISOString() };
 }
 
 // Read-only: computes the current totals without persisting. Safe for polling —

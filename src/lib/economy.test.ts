@@ -33,7 +33,15 @@ test("worker counts are clamped to workplace capacity", () => {
   const userId = createTestUser({ goldWorkers: 12, woodWorkers: 9 });
   const state = accrueResources(userId);
   assert.equal(state.goldWorkers, 5, "base gold capacity is 5 workplaces without conquered mines");
-  assert.equal(state.woodWorkers, 5, "wood capacity is fixed at 5 workplaces");
+  assert.equal(state.woodWorkers, 5, "base wood capacity is 5 workplaces without conquered fields");
+});
+
+test("conquered small/medium fields raise wood workplace capacity", () => {
+  const userId = createTestUser({ woodWorkers: 6 });
+  database.prepare("UPDATE world_tiles SET conquered_by_user_id = ? WHERE (x, y) = (SELECT x, y FROM world_tiles WHERE field_type IN ('small', 'medium') LIMIT 1)").run(userId);
+  const state = accrueResources(userId);
+  assert.equal(state.woodWorkplaces, 6, "one conquered field should raise capacity from 5 to 6");
+  assert.equal(state.woodWorkers, 6, "workers up to the raised capacity are no longer clamped");
 });
 
 test("conquered goldmines raise gold workplace capacity and storage", () => {

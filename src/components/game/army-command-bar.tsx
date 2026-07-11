@@ -22,11 +22,10 @@ export function ArmyCommandForm({ source, target, friendly, targetValid, targetP
   const canSubmit = Boolean(target) && targetValid && !targetProtected && totalUnits > 0;
 
   if (units.length === 0 && heroes.length === 0) return <p className="army-command-empty">Auf dem Startpunkt stehen keine beweglichen Einheiten.</p>;
-  if (!target) return <p className="army-command-hint">Rechts- oder Doppelklick auf ein Feld wählt das Ziel.</p>;
 
-  return <form className="army-command-body" action={executeArmyCommand} key={`army-${source}-${target}`}>
+  return <form className="army-command-body" action={executeArmyCommand} key={`army-${source}-${target ?? "none"}`}>
     <input type="hidden" name="source" value={source} />
-    <input type="hidden" name="target" value={target} />
+    <input type="hidden" name="target" value={target ?? ""} />
     <div className="army-stepper-list">
       <div className="army-stepper-toolbar">
         <button type="button" className="army-select-all" onClick={selectAll} disabled={units.length === 0}>Alle auswählen</button>
@@ -56,7 +55,7 @@ export function ArmyCommandForm({ source, target, friendly, targetValid, targetP
       })}</div>}
     </div>
     <div className="army-command-footer">
-      <p>{targetProtected ? "Fremde Hauptdörfer sind derzeit geschützt." : friendly ? `${totalUnits} Einheiten auf dein eigenes Feld verlegen.` : `Kraft ${power} · ${totalUnits} Einheiten entsenden.`}</p>
+      <p>{!target ? "Rechts- oder Doppelklick auf ein Feld wählt das Ziel." : targetProtected ? "Fremde Hauptdörfer sind derzeit geschützt." : friendly ? `${totalUnits} Einheiten auf dein eigenes Feld verlegen.` : `Kraft ${power} · ${totalUnits} Einheiten entsenden.`}</p>
       <button type="submit" disabled={!canSubmit}>{friendly ? "Einheiten verlegen" : "Angriff"}</button>
     </div>
   </form>;

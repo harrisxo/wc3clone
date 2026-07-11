@@ -240,6 +240,42 @@ const migrations: { version: number; run: () => void }[] = [
       `);
     },
   },
+  {
+    // Hero inventory: one stack per item kind, combined capacity is capped in
+    // the buy action (6 items total). Items survive hero death intentionally.
+    version: 9,
+    run: () => {
+      database.exec(`
+        ALTER TABLE hero_units ADD COLUMN item_towers INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE hero_units ADD COLUMN item_teleports INTEGER NOT NULL DEFAULT 0;
+      `);
+    },
+  },
+  {
+    // Forge research: four unlimited combat upgrades researched in the forge
+    // building; levels are permanent, jobs occupy the forge queue.
+    version: 10,
+    run: () => {
+      database.exec(`
+        CREATE TABLE research_levels (
+          user_id INTEGER NOT NULL,
+          research_key TEXT NOT NULL CHECK (research_key IN ('melee_damage','melee_defense','ranged_damage','ranged_defense')),
+          level INTEGER NOT NULL DEFAULT 0 CHECK (level >= 0),
+          PRIMARY KEY (user_id, research_key),
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE TABLE research_jobs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          research_key TEXT NOT NULL CHECK (research_key IN ('melee_damage','melee_defense','ranged_damage','ranged_defense')),
+          finishes_at TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX research_jobs_user_idx ON research_jobs(user_id, finishes_at);
+      `);
+    },
+  },
 ];
 
 const { user_version: currentVersion } = database.prepare("PRAGMA user_version").get() as { user_version: number };

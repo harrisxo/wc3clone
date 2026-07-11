@@ -41,6 +41,18 @@ test("processGameJobs adds trained combat units to unit_stacks", () => {
   assert.equal(stack.quantity, 3);
 });
 
+test("processGameJobs levels up finished research and clears the job", () => {
+  const userId = createTestUser({ race: "human" });
+  database.prepare("INSERT INTO research_jobs (user_id, research_key, finishes_at) VALUES (?, 'melee_damage', ?)").run(userId, past());
+  database.prepare("INSERT INTO research_jobs (user_id, research_key, finishes_at) VALUES (?, 'ranged_defense', ?)").run(userId, future());
+
+  const state = getGameState(userId, "human");
+
+  assert.equal(state.researchLevels.melee_damage, 1, "the due research should reach level 1");
+  assert.equal(state.researchLevels.ranged_defense, 0, "the pending research must not level up early");
+  assert.equal(state.researchJobs.length, 1, "only the unfinished job remains queued");
+});
+
 test("getGameState reserves food supply for in-flight training jobs, not just finished units", () => {
   const userId = createTestUser({ race: "human", totalWorkers: 5, foodCapacity: 10 });
   // siege (supply 4) and hero_1 (supply 1) still training, not yet due

@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { database } from "@/lib/db";
 import { getGameState } from "@/lib/game-system";
-import { buildingUpgradeCost, foodBuildingCost, queueUpgradeCost } from "@/lib/costs";
+import { foodBuildingCost, maxQueueSlots, queueUpgradeCost, researchCost } from "@/lib/costs";
+import { researchDefs } from "@/lib/game-data";
 
 // Marching time scales with Manhattan distance to the target (seconds per field).
 const MARCH_SECONDS_PER_FIELD = 20;
@@ -32,6 +33,10 @@ export async function startBuild(formData: FormData) {
   const state = getGameState(user.id, user.race);
   const def = state.buildingDefs.find((b) => b.key === key);
   if (!def || (def.kind === "main" && mode !== "queue")) redirect(`/game?view=${returnView}&notice=invalid`);
+  // Defense buildings sell hero items instantly: they have no queues or upgrades.
+  if (key === "defense" && mode !== "build") redirect(`/game?view=${returnView}&notice=invalid`);
+  // Generic building upgrades were replaced by forge research.
+  if (mode === "upgrade") redirect(`/game?view=${returnView}&notice=invalid`);
   const owned = state.buildings.find((b) => b.building_key === key);
   const active = state.buildJobs.filter((j) => j.building_key === key).length;
   let gold = def.gold,
@@ -42,11 +47,10 @@ export async function startBuild(formData: FormData) {
     ({ gold, wood, seconds } = foodBuildingCost(state.foodCapacity));
     jobType = "food";
   } else if (mode === "queue" && owned) {
+    const pendingQueueJobs = state.buildJobs.filter((j) => j.building_key === key && j.job_type === "queue").length;
+    if (owned.queue_slots + pendingQueueJobs >= maxQueueSlots(key)) redirect(`/game?view=${returnView}&notice=invalid`);
     ({ gold, wood, seconds } = queueUpgradeCost(owned.queue_slots));
     jobType = "queue";
-  } else if (mode === "upgrade" && owned) {
-    ({ gold, wood, seconds } = buildingUpgradeCost(owned.upgrade_level));
-    jobType = "upgrade";
   } else if (owned || state.buildJobs.some((j) => j.building_key === key && j.job_type === "build")) redirect(`/game?view=${returnView}`);
   if (owned && active >= owned.queue_slots) redirect(`/game?view=${returnView}`);
   const idle = state.economy.totalWorkers - state.economy.goldWorkers - state.economy.woodWorkers - state.busyWorkers;
@@ -96,6 +100,63 @@ export async function trainUnit(formData: FormData) {
   redirect(`/game?view=${returnView}`);
 }
 
+// Hero inventory: 2 slots (one stack per item kind), combined capacity 6 items.
+const HERO_ITEM_CAPACITY = 6;
+const heroItemCost = { gold: 1, wood: 1 };
+
+export async function buyHeroItem(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user?.race) redirect("/");
+  const heroKey = String(formData.get("hero"));
+  const item = String(formData.get("item"));
+  const returnView = safeView(formData.get("returnView"), "defense");
+  if (item !== "tower" && item !== "teleport") redirect(`/game?view=${returnView}&notice=invalid`);
+  const state = getGameState(user.id, user.race);
+  if (!state.buildings.some((b) => b.building_key === "defense")) redirect(`/game?view=${returnView}&notice=building`);
+  if (!state.unitDefs.some((u) => u.key === heroKey && u.role === "hero")) redirect(`/game?view=${returnView}&notice=invalid`);
+
+  const home = database.prepare("SELECT x,y FROM world_tiles WHERE owner_user_id=? AND is_main_village=1").get(user.id) as { x: number; y: number } | undefined;
+  const hero = state.heroUnits.find((h) => h.hero_key === heroKey);
+  if (!home || !hero || hero.alive !== 1 || hero.x !== home.x || hero.y !== home.y) redirect(`/game?view=${returnView}&notice=herohome`);
+  if (hero.item_towers + hero.item_teleports >= HERO_ITEM_CAPACITY) redirect(`/game?view=${returnView}&notice=inventory`);
+  if (state.economy.gold < heroItemCost.gold || state.economy.wood < heroItemCost.wood) redirect(`/game?view=${returnView}&notice=resources`);
+
+  const deduction = database.prepare("UPDATE users SET gold=gold-?,wood=wood-? WHERE id=? AND gold>=? AND wood>=?").run(heroItemCost.gold, heroItemCost.wood, user.id, heroItemCost.gold, heroItemCost.wood);
+  if (deduction.changes !== 1) redirect(`/game?view=${returnView}&notice=resources`);
+  const column = item === "tower" ? "item_towers" : "item_teleports";
+  const purchase = database.prepare(`UPDATE hero_units SET ${column}=${column}+1 WHERE user_id=? AND hero_key=? AND alive=1 AND item_towers+item_teleports<?`).run(user.id, heroKey, HERO_ITEM_CAPACITY);
+  if (purchase.changes !== 1) {
+    database.prepare("UPDATE users SET gold=gold+?,wood=wood+? WHERE id=?").run(heroItemCost.gold, heroItemCost.wood, user.id);
+    redirect(`/game?view=${returnView}&notice=inventory`);
+  }
+  redirect(`/game?view=${returnView}`);
+}
+
+// Research is queued in the forge; each of the four upgrades levels endlessly,
+// but only one job per upgrade may run at a time.
+export async function startResearch(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user?.race) redirect("/");
+  const key = String(formData.get("research"));
+  const returnView = safeView(formData.get("returnView"), "forge");
+  const def = researchDefs.find((entry) => entry.key === key);
+  if (!def) redirect(`/game?view=${returnView}&notice=invalid`);
+
+  const state = getGameState(user.id, user.race);
+  const forge = state.buildings.find((b) => b.building_key === "forge");
+  if (!forge) redirect(`/game?view=${returnView}&notice=building`);
+  if (state.researchJobs.some((job) => job.research_key === def.key)) redirect(`/game?view=${returnView}&notice=queue`);
+  const occupied = state.researchJobs.length + state.unitJobs.filter((j) => j.building_key === "forge").length + state.buildJobs.filter((j) => j.building_key === "forge").length;
+  if (occupied >= forge.queue_slots) redirect(`/game?view=${returnView}&notice=queue`);
+
+  const { gold, wood, seconds } = researchCost(state.researchLevels[def.key]);
+  if (state.economy.gold < gold || state.economy.wood < wood) redirect(`/game?view=${returnView}&notice=resources`);
+  const deduction = database.prepare("UPDATE users SET gold=gold-?,wood=wood-? WHERE id=? AND gold>=? AND wood>=?").run(gold, wood, user.id, gold, wood);
+  if (deduction.changes !== 1) redirect(`/game?view=${returnView}&notice=resources`);
+  database.prepare("INSERT INTO research_jobs(user_id,research_key,finishes_at) VALUES(?,?,?)").run(user.id, def.key, new Date(Date.now() + seconds * 1000).toISOString());
+  redirect(`/game?view=${returnView}`);
+}
+
 export async function cancelJob(formData: FormData) {
   const user = await getCurrentUser();
   if (!user?.race) redirect("/");
@@ -103,7 +164,7 @@ export async function cancelJob(formData: FormData) {
   const jobType = String(formData.get("jobType"));
   const returnView = safeView(formData.get("returnView"), "bauen");
 
-  if (Number.isNaN(jobId) || (jobType !== "build" && jobType !== "unit")) {
+  if (Number.isNaN(jobId) || (jobType !== "build" && jobType !== "unit" && jobType !== "research")) {
     redirect(`/game?view=${returnView}&notice=invalid`);
   }
 
@@ -111,6 +172,8 @@ export async function cancelJob(formData: FormData) {
 
   if (jobType === "build") {
     database.prepare("DELETE FROM build_jobs WHERE id = ? AND user_id = ?").run(jobId, user.id);
+  } else if (jobType === "research") {
+    database.prepare("DELETE FROM research_jobs WHERE id = ? AND user_id = ?").run(jobId, user.id);
   } else {
     database.prepare("DELETE FROM unit_jobs WHERE id = ? AND user_id = ?").run(jobId, user.id);
   }

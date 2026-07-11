@@ -46,7 +46,7 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
   const startHref = (name: string) => `/game?view=karte&x=${startX}&command=${name}${targetName ? `&target=${targetName}` : ""}`;
   const targetHref = (name: string) => `/game?view=karte&x=${startX}${sourceName ? `&command=${sourceName}` : ""}&target=${name}`;
   const pagerHref = (x: number) => `/game?view=karte&x=${x}${sourceName ? `&command=${sourceName}` : ""}${targetName ? `&target=${targetName}` : ""}`;
-  const fixTarget = (event: { preventDefault: () => void }, name: string) => { event.preventDefault(); router.push(targetHref(name)); };
+  const fixTarget = (event: { preventDefault: () => void }, name: string) => { event.preventDefault(); router.push(name === sourceName ? `/game?view=karte&x=${startX}` : targetHref(name)); };
 
   const submitGoTo = (event: FormEvent) => {
     event.preventDefault();
@@ -85,7 +85,7 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
               const isSource = sourceTile?.x === tile.x && sourceTile?.y === tile.y;
               const isTarget = targetTile?.x === tile.x && targetTile?.y === tile.y;
               const label = isOwnHome ? "Dein Hauptdorf" : isVillage ? "Fremdes Hauptdorf" : territoryOwner ? `${fieldInfo[tile.field_type].name} von ${territoryOwner}` : fieldInfo[tile.field_type].name;
-              const href = hasOwnMovable(tile.x, tile.y) ? startHref(fieldName) : pagerHref(startX);
+              const href = startHref(fieldName);
               return <Link
                 className={`world-tile field-${tile.field_type}${isOwnHome ? " home-tile" : isVillage ? " village-tile" : ""}${isOwnTerritory ? " own-territory" : isEnemyTerritory ? " enemy-territory" : ""}${isSource ? " command-source" : ""}${isTarget ? " command-target" : ""}`}
                 href={href}
@@ -118,7 +118,7 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
       </form>
       {sourceTile
         ? <ArmyCommandForm source={sourceName ?? ""} target={targetName} friendly={targetFriendly} targetValid={targetValid} targetProtected={targetProtected} units={commandUnits} heroes={commandHeroes} />
-        : <p className="army-command-hint">Linksklick auf ein eigenes Feld mit Einheiten w{"\u00e4"}hlt den Startpunkt.</p>}
+        : <p className="army-command-hint">Linksklick auf ein Feld w{"\u00e4"}hlt es aus.</p>}
       <Link className="cp-overview" href={`/game?view=ranking&player=${userId}`}>Pers{"\u00f6"}nliche {"\u00dc"}bersicht</Link>
     </aside>
   </div>;

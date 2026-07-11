@@ -43,6 +43,15 @@ const units = (
   heroUnit("hero_4", heroes[3]),
 ];
 
+// Forge research: identical for every race, +1 per level on the matching stat.
+export type ResearchKey = "melee_damage" | "melee_defense" | "ranged_damage" | "ranged_defense";
+export const researchDefs: { key: ResearchKey; name: string; icon: string; description: string }[] = [
+  { key: "melee_damage", name: "Nahkampf-Schaden", icon: "⚔", description: "+1 Angriffskraft pro Nahkämpfer und Level" },
+  { key: "melee_defense", name: "Nahkampf-Verteidigung", icon: "▣", description: "+1 Verteidigung pro Nahkämpfer und Level" },
+  { key: "ranged_damage", name: "Fernkampf-Schaden", icon: "➶", description: "+1 Angriffskraft pro Fernkämpfer und Level" },
+  { key: "ranged_defense", name: "Fernkampf-Verteidigung", icon: "◈", description: "+1 Verteidigung pro Fernkämpfer und Level" },
+];
+
 export const unitsByRace: Record<Race, UnitDefinition[]> = {
   human: units("Bauer", "Schwertkämpfer", "Bogenschütze", "Belagerungsramme", "Himmelsgreif", ["Paladin", "Großmagier", "Blutmagier", "Todesritter"]),
   orc: units("Peon", "Klingenkrieger", "Speerjäger", "Kriegsbock", "Windreiter", ["Klingenmeister", "Seher", "Taurenhäuptling", "Schattenjäger"]),
