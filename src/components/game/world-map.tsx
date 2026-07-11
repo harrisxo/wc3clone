@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 // Interactive world map: left-click sets start, right-/double-click sets target.
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
@@ -66,7 +66,7 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
     <div className="map-main">
       <div className="map-summary">
         <div><span className="section-kicker">Gemeinsame Welt</span><h2>Die Grenzlande</h2></div>
-        <div className="map-coordinates"><strong>X {home.x + 1} · Y {home.y + 1}</strong></div>
+        <div className="map-coordinates"><strong>X {home.x + 1} Â· Y {home.y + 1}</strong></div>
       </div>
       <div className="map-pager">
         {leftStart !== null ? <Link className="map-arrow" href={pagerHref(leftStart)} aria-label="Kartenausschnitt nach links"><span aria-hidden="true">{"\u2039"}</span></Link> : <span className="map-arrow disabled" aria-hidden="true">{"\u2039"}</span>}
@@ -92,7 +92,8 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
                 href={href}
                 onContextMenu={(event) => fixTarget(event, fieldName)} onDoubleClick={(event) => fixTarget(event, fieldName)}
                 key={`${tile.x}-${tile.y}`} role="gridcell" aria-label={`${label} auf Feld ${fieldName}`} title={`${label} ${"\u00b7"} Feld ${fieldName}`}>
-                <span className="tile-label">{fieldName}</span>{tile.tower_count > 0 && <span className="tower-map-marker">♜ {tile.tower_count}</span>}
+                <span className="tile-label">{fieldName}</span>
+              {tile.tower_count > 0 && <span className="tower-map-marker">{"\u265c"} {tile.tower_count}</span>}
                 {visibleOwner && <span className={`territory-owner${isOwnField ? " own-owner" : ""}`}>{visibleOwner}</span>}
 
               </Link>;
@@ -112,7 +113,7 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
       </div>
       {targetTile && targetFriendly && targetTile.is_main_village === 0 && <form className="tower-build-form" action={startTowerBuild}>
         <input type="hidden" name="target" value={targetName ?? ""} />
-        <button type="submit">Freien Arbeiter entsenden · Turm bauen · Gold 1 · Holz 1 · 10s</button>
+        <button type="submit">Freien Arbeiter entsenden Â· Turm bauen Â· Gold 1 Â· Holz 1 Â· 10s</button>
       </form>}      <form className="cp-goto" onSubmit={submitGoTo}>
         <span className="section-kicker">Gehe zu</span>
         <input type="number" min={1} max={10} placeholder="Zeile" value={goTo.row} onChange={(event) => setGoTo((current) => ({ ...current, row: event.target.value }))} aria-label="Zeile" />
@@ -127,6 +128,9 @@ export function WorldMap({ tiles, userId, home, startX, totalWidth, leftStart, r
     </aside>
   </div>;
 }
+
+
+
 
 
 
