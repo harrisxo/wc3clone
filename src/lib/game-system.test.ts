@@ -55,11 +55,11 @@ test("processGameJobs levels up finished research and clears the job", () => {
 
 test("getGameState reserves food supply for in-flight training jobs, not just finished units", () => {
   const userId = createTestUser({ race: "human", totalWorkers: 5, foodCapacity: 10 });
-  // siege (supply 4) and hero_1 (supply 1) still training, not yet due
+  // siege and hero_1 each reserve 1 supply while still training
   database.prepare("INSERT INTO unit_jobs (user_id, building_key, unit_key, finishes_at) VALUES (?, 'siege', 'siege', ?)").run(userId, future());
   database.prepare("INSERT INTO unit_jobs (user_id, building_key, unit_key, finishes_at) VALUES (?, 'magic', 'hero_1', ?)").run(userId, future());
 
   const state = getGameState(userId, "human");
 
-  assert.equal(state.supplyUsed, 10, "5 workers + 4 (pending siege) + 1 (pending hero) = 10, exactly at the food cap");
+  assert.equal(state.supplyUsed, 7, "5 workers + 1 pending siege + 1 pending hero = 7");
 });

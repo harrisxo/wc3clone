@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { database } from "@/lib/db";
 import { getGameState } from "@/lib/game-system";
 import { foodBuildingCost, maxQueueSlots, queueUpgradeCost, researchCost } from "@/lib/costs";
-import { researchDefs } from "@/lib/game-data";
+import { DEVELOPMENT_UNIT_SECONDS, researchDefs } from "@/lib/game-data";
 
 // Marching time scales with Manhattan distance to the target (seconds per field).
 const MARCH_SECONDS_PER_FIELD = 20;
@@ -21,7 +21,7 @@ function isHeroUnit(def: { role?: string; unique?: boolean } | undefined) {
 function heroReviveCost(level: number) {
   const base = 1;
   const step = 1;
-  return { gold: base + level * step, wood: base + level * step, seconds: 180 + level * 60 };
+  return { gold: base + level * step, wood: base + level * step, seconds: DEVELOPMENT_UNIT_SECONDS };
 }
 
 export async function startBuild(formData: FormData) {

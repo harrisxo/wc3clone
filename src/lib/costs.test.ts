@@ -11,8 +11,8 @@ test("foodBuildingCost always costs 1/1 while testing", () => {
 });
 
 test("queueUpgradeCost always costs 1/1 while testing", () => {
-  assert.deepEqual(queueUpgradeCost(1), { gold: 1, wood: 1, seconds: 300 });
-  assert.deepEqual(queueUpgradeCost(3), { gold: 1, wood: 1, seconds: 300 });
+  assert.deepEqual(queueUpgradeCost(1), { gold: 1, wood: 1, seconds: 10 });
+  assert.deepEqual(queueUpgradeCost(3), { gold: 1, wood: 1, seconds: 10 });
 });
 
 test("buildingUpgradeCost costs 1/1 while testing but still scales its build time", () => {

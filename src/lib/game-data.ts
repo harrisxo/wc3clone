@@ -4,6 +4,7 @@ export type BuildingDefinition = { key: string; name: string; icon: string; gold
 export type UnitDefinition = { key: string; name: string; icon: string; building: string; gold: number; wood: number; seconds: number; supply: number; worker?: boolean; role: "worker" | "melee" | "ranged" | "air" | "siege" | "hero"; unique?: boolean };
 
 // TESTING: all gold/wood costs below are temporarily set to 1.
+export const DEVELOPMENT_UNIT_SECONDS = 10;
 const commonCosts = {
   barracks: { gold: 1, wood: 1, seconds: 180, kind: "military" as const },
   food: { gold: 1, wood: 1, seconds: 120, kind: "food" as const },
@@ -22,7 +23,7 @@ export const buildingsByRace: Record<Race, BuildingDefinition[]> = {
   nightelf: [{ key: "main", name: "Weltenbaum", icon: "♜", gold: 1, wood: 1, seconds: 0, kind: "main" }, b("barracks", "Kriegerhain", "⚔", "barracks"), b("food", "Mondbrunnen", "⌂", "food"), b("forge", "Sternenschmiede", "⚒", "forge"), b("magic", "Heldenturm", "✦", "magic"), b("siege", "Wurzelwerk", "⚙", "siege"), b("air", "Chimärennest", "◆", "air"), b("defense", "Wächterbaum", "▣", "defense")],
 };
 
-const heroUnit = (key: string, name: string): UnitDefinition => ({ key, name, icon: "✪", building: "magic", gold: 1, wood: 1, seconds: 240, supply: 1, role: "hero", unique: true });
+const heroUnit = (key: string, name: string): UnitDefinition => ({ key, name, icon: "✪", building: "magic", gold: 1, wood: 1, seconds: DEVELOPMENT_UNIT_SECONDS, supply: 1, role: "hero", unique: true });
 
 const units = (
   worker: string,
@@ -32,11 +33,11 @@ const units = (
   air: string,
   heroes: [string, string, string, string],
 ): UnitDefinition[] => [
-  { key: "worker", name: worker, icon: "♟", building: "main", gold: 1, wood: 1, seconds: 90, supply: 1, worker: true, role: "worker" },
-  { key: "melee", name: melee, icon: "⚔", building: "barracks", gold: 1, wood: 1, seconds: 120, supply: 2, role: "melee" },
-  { key: "ranged", name: ranged, icon: "➶", building: "barracks", gold: 1, wood: 1, seconds: 150, supply: 2, role: "ranged" },
-  { key: "siege", name: antiTower, icon: "⚙", building: "siege", gold: 1, wood: 1, seconds: 300, supply: 4, role: "siege" },
-  { key: "air", name: air, icon: "◆", building: "air", gold: 1, wood: 1, seconds: 360, supply: 5, role: "air" },
+  { key: "worker", name: worker, icon: "♟", building: "main", gold: 1, wood: 1, seconds: DEVELOPMENT_UNIT_SECONDS, supply: 1, worker: true, role: "worker" },
+  { key: "melee", name: melee, icon: "⚔", building: "barracks", gold: 1, wood: 1, seconds: DEVELOPMENT_UNIT_SECONDS, supply: 1, role: "melee" },
+  { key: "ranged", name: ranged, icon: "➶", building: "barracks", gold: 1, wood: 1, seconds: DEVELOPMENT_UNIT_SECONDS, supply: 1, role: "ranged" },
+  { key: "siege", name: antiTower, icon: "⚙", building: "siege", gold: 1, wood: 1, seconds: DEVELOPMENT_UNIT_SECONDS, supply: 1, role: "siege" },
+  { key: "air", name: air, icon: "◆", building: "air", gold: 1, wood: 1, seconds: DEVELOPMENT_UNIT_SECONDS, supply: 1, role: "air" },
   heroUnit("hero_1", heroes[0]),
   heroUnit("hero_2", heroes[1]),
   heroUnit("hero_3", heroes[2]),

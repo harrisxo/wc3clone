@@ -4,7 +4,7 @@ export function foodBuildingCost(_currentFoodCapacity: number) {
 }
 
 export function queueUpgradeCost(_currentQueueSlots: number) {
-  return { gold: 1, wood: 1, seconds: 300 };
+  return { gold: 1, wood: 1, seconds: 10 };
 }
 
 export function buildingUpgradeCost(currentUpgradeLevel: number) {
