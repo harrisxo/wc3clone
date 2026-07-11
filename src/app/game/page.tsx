@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { logout } from "@/lib/actions/auth";
 import { getCurrentUser } from "@/lib/auth";
@@ -42,9 +42,13 @@ export default async function GamePage({ searchParams }: PageProps<"/game">) {
   const race = raceData[user.race];
   const world = !buildingViewKey && viewKey === "karte" ? getWorldMap(user.id, requestedStart) : null;
   const home = world?.home ?? ensureHomeTile(user.id);
-  const sourceField = typeof query.command === "string" ? query.command : null;
+  const requestedSourceField = typeof query.command === "string" ? query.command : null;
+  const defaultSourceField = `${home.y + 1}-${home.x + 1}`;
+  const sourceField = requestedSourceField ?? defaultSourceField;
   const targetField = typeof query.target === "string" ? query.target : null;
-  const sourceTile = world?.tiles.find((tile) => `${tile.y + 1}-${tile.x + 1}` === sourceField) ?? null;
+  const sourceTile = world?.tiles.find((tile) => `${tile.y + 1}-${tile.x + 1}` === sourceField)
+    ?? (!requestedSourceField ? world?.tiles.find((tile) => tile.x === home.x && tile.y === home.y) : null)
+    ?? null;
   const targetTile = world?.tiles.find((tile) => `${tile.y + 1}-${tile.x + 1}` === targetField) ?? null;
   const ranking = viewKey === "ranking" ? getRanking() : [];
   const showAllFields = viewKey === "einheiten" && query.all === "1";

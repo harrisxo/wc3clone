@@ -6,13 +6,13 @@ export type UnitDefinition = { key: string; name: string; icon: string; building
 // TESTING: all gold/wood costs below are temporarily set to 1.
 export const DEVELOPMENT_UNIT_SECONDS = 10;
 const commonCosts = {
-  barracks: { gold: 1, wood: 1, seconds: 180, kind: "military" as const },
-  food: { gold: 1, wood: 1, seconds: 120, kind: "food" as const },
-  forge: { gold: 1, wood: 1, seconds: 240, kind: "upgrade" as const },
-  magic: { gold: 1, wood: 1, seconds: 300, kind: "special" as const },
-  siege: { gold: 1, wood: 1, seconds: 360, kind: "military" as const },
-  air: { gold: 1, wood: 1, seconds: 420, kind: "military" as const },
-  defense: { gold: 1, wood: 1, seconds: 300, kind: "special" as const },
+  barracks: { gold: 1, wood: 1, seconds: DEVELOPMENT_UNIT_SECONDS, kind: "military" as const },
+  food: { gold: 1, wood: 1, seconds: DEVELOPMENT_UNIT_SECONDS, kind: "food" as const },
+  forge: { gold: 1, wood: 1, seconds: DEVELOPMENT_UNIT_SECONDS, kind: "upgrade" as const },
+  magic: { gold: 1, wood: 1, seconds: DEVELOPMENT_UNIT_SECONDS, kind: "special" as const },
+  siege: { gold: 1, wood: 1, seconds: DEVELOPMENT_UNIT_SECONDS, kind: "military" as const },
+  air: { gold: 1, wood: 1, seconds: DEVELOPMENT_UNIT_SECONDS, kind: "military" as const },
+  defense: { gold: 1, wood: 1, seconds: DEVELOPMENT_UNIT_SECONDS, kind: "special" as const },
 };
 const b = (key: string, name: string, icon: string, c: keyof typeof commonCosts): BuildingDefinition => ({ key, name, icon, ...commonCosts[c] });
 

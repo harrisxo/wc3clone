@@ -19,6 +19,15 @@ test("processGameJobs finishes a due build job into player_buildings", () => {
   assert.equal(remainingJobs.c, 0, "the finished job should be removed");
 });
 
+test("processGameJobs adds 10 food capacity when the first food building finishes", () => {
+  const userId = createTestUser({ race: "human", foodCapacity: 10 });
+  database.prepare("INSERT INTO build_jobs (user_id, building_key, job_type, finishes_at) VALUES (?, 'food', 'build', ?)").run(userId, past());
+
+  processGameJobs(userId, "human");
+
+  const user = database.prepare("SELECT food_capacity FROM users WHERE id = ?").get(userId) as { food_capacity: number };
+  assert.equal(user.food_capacity, 20, "the completed food building should provide its first 10 food capacity");
+});
 test("processGameJobs adds trained workers to total_workers instead of unit_stacks", () => {
   const userId = createTestUser({ race: "human", totalWorkers: 5 });
   database.prepare("INSERT INTO unit_jobs (user_id, building_key, unit_key, quantity, finishes_at) VALUES (?, 'main', 'worker', 2, ?)").run(userId, past());

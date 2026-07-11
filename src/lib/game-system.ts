@@ -1,4 +1,4 @@
-﻿import "server-only";
+import "server-only";
 import { database } from "@/lib/db";
 import { accrueResources, previewResources } from "@/lib/economy";
 import { buildingsByRace, researchDefs, unitsByRace, type ResearchKey } from "@/lib/game-data";
@@ -26,7 +26,10 @@ export function processGameJobs(userId: number, race: Race) {
   const home = ensureHomeTile(userId);
   const builds = database.prepare("SELECT id,building_key,job_type FROM build_jobs WHERE user_id=? AND finishes_at<=?").all(userId, now) as { id: number; building_key: string; job_type: string }[];
   for (const job of builds) {
-    if (job.job_type === "build") database.prepare("INSERT OR IGNORE INTO player_buildings(user_id,building_key) VALUES(?,?)").run(userId, job.building_key);
+    if (job.job_type === "build") {
+      const completed = database.prepare("INSERT OR IGNORE INTO player_buildings(user_id,building_key) VALUES(?,?)").run(userId, job.building_key);
+      if (job.building_key === "food" && completed.changes === 1) database.prepare("UPDATE users SET food_capacity=food_capacity+10 WHERE id=?").run(userId);
+    }
     else if (job.job_type === "food") database.prepare("UPDATE users SET food_capacity=food_capacity+10 WHERE id=?").run(userId);
     else if (job.job_type === "queue") database.prepare("UPDATE player_buildings SET queue_slots=queue_slots+1 WHERE user_id=? AND building_key=?").run(userId, job.building_key);
     else database.prepare("UPDATE player_buildings SET upgrade_level=upgrade_level+1 WHERE user_id=? AND building_key=?").run(userId, job.building_key);
