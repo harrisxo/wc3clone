@@ -16,7 +16,7 @@ export function BuildingDetailView({ state, home, buildingKey, race }: { state: 
   const activeBuildingJobs = state.buildJobs.filter((job) => job.building_key === buildingKey);
   const isForge = buildingKey === "forge";
   const activeResearchJobs = isForge ? state.researchJobs : [];
-  const occupiedQueues = activeUnitJobs.length + activeBuildingJobs.length + activeResearchJobs.length;
+  const occupiedQueues = activeUnitJobs.reduce((sum, job) => sum + job.quantity, 0) + activeBuildingJobs.length + activeResearchJobs.length;
   const queueCost = queueUpgradeCost(owned.queue_slots);
   const foodCost = foodBuildingCost(state.foodCapacity);
   const pendingQueueJobs = activeBuildingJobs.filter((job) => job.job_type === "queue").length;
@@ -131,12 +131,4 @@ export function BuildingDetailView({ state, home, buildingKey, race }: { state: 
     </section>
   </div>;
 }
-
-
-
-
-
-
-
-
 

@@ -73,7 +73,9 @@ export async function trainUnit(formData: FormData) {
 
   const building = state.buildings.find((b) => b.building_key === def.building);
   if (!building) redirect(`/game?view=${returnView}&notice=building`);
-  const active = state.unitJobs.filter((j) => j.building_key === def.building).length;
+  const active = state.unitJobs
+    .filter((j) => j.building_key === def.building)
+    .reduce((sum, job) => sum + job.quantity, 0);
   if (active >= building.queue_slots) redirect(`/game?view=${returnView}&notice=queue`);
 
   let quantity = 1;
@@ -89,14 +91,24 @@ export async function trainUnit(formData: FormData) {
     quantity = Number.isFinite(requestedQuantity) ? Math.min(999, Math.max(1, requestedQuantity)) : 1;
   }
 
+  if (active + quantity > building.queue_slots) redirect(`/game?view=${returnView}&notice=queue`);
+
   const totalGold = unitCost.gold * quantity;
   const totalWood = unitCost.wood * quantity;
-  const totalSeconds = unitCost.seconds * quantity;
   if (state.supplyUsed + def.supply * quantity > state.foodCapacity) redirect(`/game?view=${returnView}&notice=food`);
   if (state.economy.gold < totalGold || state.economy.wood < totalWood) redirect(`/game?view=${returnView}&notice=resources`);
   const deduction = database.prepare("UPDATE users SET gold=gold-?,wood=wood-? WHERE id=? AND gold>=? AND wood>=?").run(totalGold, totalWood, user.id, totalGold, totalWood);
   if (deduction.changes !== 1) redirect(`/game?view=${returnView}&notice=resources`);
-  database.prepare("INSERT INTO unit_jobs(user_id,building_key,unit_key,quantity,finishes_at) VALUES(?,?,?,?,?)").run(user.id, def.building, key, quantity, new Date(Date.now() + totalSeconds * 1000).toISOString());
+  const finishesAt = new Date(Date.now() + unitCost.seconds * 1000).toISOString();
+  const insert = database.prepare("INSERT INTO unit_jobs(user_id,building_key,unit_key,quantity,finishes_at) VALUES(?,?,?,?,?)");
+  database.exec("BEGIN IMMEDIATE");
+  try {
+    for (let index = 0; index < quantity; index += 1) insert.run(user.id, def.building, key, 1, finishesAt);
+    database.exec("COMMIT");
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
+  }
   redirect(`/game?view=${returnView}`);
 }
 
@@ -236,6 +248,4 @@ export async function executeArmyCommand(formData: FormData) {
   }
   redirect("/game?view=angriffe&notice=marching");
 }
-
-
 
