@@ -1,4 +1,4 @@
-﻿import Image from "next/image";
+import Image from "next/image";
 import { buyHeroItem, cancelJob, startBuild, startResearch, trainUnit } from "@/lib/actions/game";
 import type { Race } from "@/lib/auth";
 import type { getGameState } from "@/lib/game-system";
@@ -70,7 +70,7 @@ export function BuildingDetailView({ state, home, buildingKey, race }: { state: 
           <input type="hidden" name="unit" value={unit.key} />
           <input type="hidden" name="returnView" value={buildingKey} />
           <button type="submit" name="quantity" value={1} className="selected-unit-trigger">
-            <span className="unit-icon">{unit.icon}</span>
+            <Image className="unit-icon-image" src={`/units/${race}-${unit.key}.png`} alt="" width={42} height={42} />
             <span className="selected-unit-info"><h4>{unit.name}</h4><small>{unit.supply} Nahrung · {Math.ceil(unit.seconds / 60)}m</small><p>Gold {unit.gold} · Holz {unit.wood}</p></span>
           </button>
           <div className="selected-unit-quantity"><span>Anzahl</span><UnitQuantityControls /></div>

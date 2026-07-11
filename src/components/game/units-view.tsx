@@ -53,19 +53,19 @@ export function UnitsView({ state, home, race, ownedTiles, showAll }: { state: R
     <div className="panel-heading"><p className="section-kicker">Übersicht</p><h2>Einheiten</h2><p>Alle Einheiten deines Volkes und ihr aktueller Standort.</p></div>
     <div className="army-table-wrap"><table className="game-table army-overview-table"><thead>
       <tr><th rowSpan={2}>Feld</th><th rowSpan={2}>Typ</th><th colSpan={combatUnits.length}>Einheiten</th>{livingHeroes.length > 0 && <th className="hero-column-group" colSpan={livingHeroes.length}>Helden</th>}</tr>
-      <tr>{combatUnits.map((unit) => <th title={unit.name} key={unit.key}><span className="unit-th-icon">{unit.icon}</span> <span className="unit-th-name">{unit.name}</span></th>)}{livingHeroes.map((hero) => <th className="hero-column-name" key={hero.hero_key}>{hero.definition!.name}</th>)}</tr>
+      <tr>{combatUnits.map((unit) => <th title={unit.name} key={unit.key}><Image className="unit-th-image" src={`/units/${race}-${unit.key}.png`} alt="" width={32} height={32} /></th>)}{livingHeroes.map((hero) => <th className="hero-column-name" key={hero.hero_key}>{hero.definition!.name}</th>)}</tr>
     </thead><tbody>
-      <tr><td>Insgesamt</td><td>—</td>{combatUnits.map((unit) => <td key={unit.key}>{(totals.get(unit.key) ?? 0) + (marchingQuantities.get(unit.key) ?? 0)}</td>)}{livingHeroes.map((hero) => <td className="hero-total-cell" key={hero.hero_key}>Level {hero.level}</td>)}</tr>
+      <tr><td>Insgesamt</td><td>—</td>{combatUnits.map((unit) => <td className="unit-count-cell" key={unit.key}>{(totals.get(unit.key) ?? 0) + (marchingQuantities.get(unit.key) ?? 0)}</td>)}{livingHeroes.map((hero) => <td className="hero-total-cell" key={hero.hero_key}>Level {hero.level}</td>)}</tr>
       {rows.map((row) => <tr key={`${row.x}:${row.y}`}>
         <td><Link href={`/game?view=karte&x=${Math.max(0, row.x - 4)}&field=${row.y + 1}-${row.x + 1}`}>{row.y + 1}-{row.x + 1}</Link></td>
         <td title={row.typeName}>{row.typeCode}</td>
-        {combatUnits.map((unit) => <td key={unit.key}>{row.quantities.get(unit.key) ?? 0}</td>)}
+        {combatUnits.map((unit) => <td className="unit-count-cell" key={unit.key}>{row.quantities.get(unit.key) ?? 0}</td>)}
         {livingHeroes.map((hero) => <td className="hero-table-cell" key={hero.hero_key}>{hero.x === row.x && hero.y === row.y ? heroCell(hero) : ""}</td>)}
       </tr>)}
       {hasMarchRow && <tr className="marching-row">
         <td>Unterwegs</td>
         <td title="Truppen auf dem Marsch">⚔</td>
-        {combatUnits.map((unit) => <td key={unit.key}>{marchingQuantities.get(unit.key) ?? 0}</td>)}
+        {combatUnits.map((unit) => <td className="unit-count-cell" key={unit.key}>{marchingQuantities.get(unit.key) ?? 0}</td>)}
         {livingHeroes.map((hero) => <td className="hero-table-cell" key={hero.hero_key}>{hero.x === null || hero.y === null ? heroCell(hero) : ""}</td>)}
       </tr>}
     </tbody></table></div>
